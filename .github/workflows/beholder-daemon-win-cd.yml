@@ -1,0 +1,38 @@
+name: Daemon Windows CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '**'
+      - '!README.md'
+      - '!docs/**'
+
+jobs:
+  docker:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        dotnet-version: ['5.0.x' ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v1.7.2
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+      # - name: Test
+      #   run: dotnet test --no-restore --verbosity normal
+      - name: Publish
+        run: dotnet publish --configuration Release --no-restore --output "./publish"
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: beholder-daemon-win
+          path: ./publish
