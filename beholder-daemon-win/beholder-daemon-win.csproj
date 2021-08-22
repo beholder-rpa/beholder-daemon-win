@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <UserSecretsId>dotnet-beholder_daemon_win-33DFC301-648E-463A-B6F9-100A5B9284A2</UserSecretsId>
+    <RootNamespace>beholder_daemon_win</RootNamespace>
+    <OutputType>exe</OutputType>
+    <PublishSingleFile>true</PublishSingleFile>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="5.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="5.0.0" />
+    <PackageReference Include="MQTTnet" Version="3.0.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\beholder-eye\beholder-eye.csproj" />
+    <ProjectReference Include="..\beholder-nest\beholder-nest.csproj" />
+    <ProjectReference Include="..\beholder-psionix\beholder-psionix.csproj" />
+  </ItemGroup>
+</Project>
