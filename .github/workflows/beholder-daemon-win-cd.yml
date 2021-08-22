@@ -11,7 +11,7 @@ on:
       - '!docs/**'
 
 jobs:
-  docker:
+  build:
     runs-on: windows-latest
     strategy:
       matrix:
