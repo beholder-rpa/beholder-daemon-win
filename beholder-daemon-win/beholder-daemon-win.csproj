@@ -1,7 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk.Worker">
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net5.0-windows</TargetFramework>
     <UserSecretsId>dotnet-beholder_daemon_win-33DFC301-648E-463A-B6F9-100A5B9284A2</UserSecretsId>
     <RootNamespace>beholder_daemon_win</RootNamespace>
     <OutputType>exe</OutputType>

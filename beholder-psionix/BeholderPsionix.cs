@@ -16,8 +16,8 @@
     private readonly ConcurrentDictionary<string, (Timer timer, ProcessInfo lastProcessInfo)> _processObservers = new ConcurrentDictionary<string, (Timer timer, ProcessInfo lastProcessInfo)>();
     private readonly ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber>();
     private readonly ILogger _logger;
-    private readonly MouseHook _mouseHook;
-    private readonly KeyboardHook _keyboardHook;
+    //private readonly MouseHook _mouseHook;
+    //private readonly KeyboardHook _keyboardHook;
 
     public BeholderPsionix(ILogger<BeholderPsionix> logger)
     {
@@ -290,15 +290,15 @@
               state.Value.timer.Dispose();
             }
           }
-          if (_mouseHook != null)
-          {
-            _mouseHook.Dispose();
-          }
+          //if (_mouseHook != null)
+          //{
+          //  _mouseHook.Dispose();
+          //}
 
-          if (_keyboardHook != null)
-          {
-            _keyboardHook.Dispose();
-          }
+          //if (_keyboardHook != null)
+          //{
+          //  _keyboardHook.Dispose();
+          //}
         }
 
         IsDisposed = true;

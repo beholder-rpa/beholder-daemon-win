@@ -30,10 +30,10 @@ namespace beholder_daemon_win
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-      await _mqttClient.Connect(stoppingToken);
+      await _mqttClient.StartAsync();
       while (!stoppingToken.IsCancellationRequested)
       {
-        await _mqttClient.MqttClient.PublishEventAsync(Consts.PubSubName, "beholder/ctaf", _serviceInfo.Value, stoppingToken);
+        await _mqttClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, "beholder/ctaf", _serviceInfo.Value, cancellationToken: stoppingToken);
         _logger.LogInformation("Daemon Pulsed");
         await Task.Delay(5000, stoppingToken);
       }

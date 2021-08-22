@@ -162,7 +162,7 @@
           {
             var newPointerPosition = desktopFrame.PointerPosition;
 
-            if (((PointerPosition)lastPointerPosition) != newPointerPosition)
+            if (!lastPointerPosition.Equals(newPointerPosition))
             {
               OnBeholderEyeEvent(new PointerPositionChangedEvent() { PointerPosition = newPointerPosition });
               lastPointerPosition = newPointerPosition;

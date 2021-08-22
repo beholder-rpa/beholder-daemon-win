@@ -3,15 +3,16 @@
   using beholder_nest.Models;
   using beholder_nest.Routing;
   using MQTTnet;
-  using MQTTnet.Client;
+  using MQTTnet.Extensions.ManagedClient;
   using System.Collections.Generic;
   using System.Text.Json;
+  using System.Text.RegularExpressions;
   using System.Threading;
   using System.Threading.Tasks;
 
   public static class IMqttClientExtensions
   {
-    public static void SubscribeControllers(this IMqttClient client, MqttApplicationMessageRouter router)
+    public static void SubscribeControllers(this IManagedMqttClient client, MqttApplicationMessageRouter router)
     {
       var filters = new List<MqttTopicFilter>();
       foreach (var pattern in router.RouteTable.Keys)
@@ -25,8 +26,16 @@
       client.SubscribeAsync(filters.ToArray());
     }
 
-    public static async Task PublishEventAsync<T>(this IMqttClient client, string pubSubName, string topic, T data, CancellationToken cancellationToken = default)
+    public static async Task PublishEventAsync<T>(this IManagedMqttClient client, string pubSubName, string topic, T data, BeholderServiceInfo serviceInfo = null, CancellationToken cancellationToken = default)
     {
+      if (serviceInfo == null)
+      {
+        serviceInfo = new BeholderServiceInfo();
+      }
+
+      // Replace tokens within the pattern
+      var pattern = Regex.Replace(topic, @"{\s*?hostname\s*?}", serviceInfo.HostName, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
       var cloudEvent = new CloudEvent()
       {
         Data = data,

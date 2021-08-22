@@ -10,9 +10,9 @@
   using MQTTnet.Client.Connecting;
   using MQTTnet.Client.Disconnecting;
   using MQTTnet.Client.Options;
+  using MQTTnet.Extensions.ManagedClient;
   using System;
   using System.Collections.Concurrent;
-  using System.Threading;
   using System.Threading.Tasks;
 
   public class BeholderMqttClient : IBeholderMqttClient
@@ -22,22 +22,25 @@
     private readonly BeholderOptions _options;
     private readonly MqttApplicationMessageRouter _router;
     private readonly ConcurrentDictionary<IObserver<MqttClientEvent>, MqttClientEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<MqttClientEvent>, MqttClientEventUnsubscriber>();
-    private readonly IMqttClientOptions _mqttClientOptions;
+    private readonly IManagedMqttClientOptions _mqttClientOptions;
     private readonly ILogger<BeholderMqttClient> _logger;
 
-    public BeholderMqttClient(IOptions<BeholderOptions> options, MqttApplicationMessageRouter router, ILogger<BeholderMqttClient> logger)
+    public BeholderMqttClient(IOptions<BeholderOptions> options, MqttApplicationMessageRouter router, BeholderServiceInfo serviceInfo, ILogger<BeholderMqttClient> logger)
     {
       _options = (options ?? throw new ArgumentNullException(nameof(options))).Value;
       _router = router ?? throw new ArgumentNullException(nameof(router));
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-      _mqttClientOptions = new MqttClientOptionsBuilder()
-         .WithWebSocketServer(_options.MqttBrokerUrl)
-         .WithCredentials(_options.Username, _options.Password)
-         .WithKeepAlivePeriod(TimeSpan.FromMilliseconds(_options.KeepAlivePeriodMs ?? 10000))
-         .WithCommunicationTimeout(TimeSpan.FromMilliseconds(_options.CommunicationTimeoutMs ?? 15000))
-         .WithWillDelayInterval(_options.WillDelayIntervalMs ?? 25000)
-         .WithWillMessage(
+      _mqttClientOptions = new ManagedMqttClientOptionsBuilder()
+         .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+         .WithClientOptions(new MqttClientOptionsBuilder()
+            .WithClientId($"daemon-{serviceInfo.HostName}")
+            .WithWebSocketServer(_options.MqttBrokerUrl)
+            .WithCredentials(_options.Username, _options.Password)
+            .WithKeepAlivePeriod(TimeSpan.FromMilliseconds(_options.KeepAlivePeriodMs ?? 10000))
+            .WithCommunicationTimeout(TimeSpan.FromMilliseconds(_options.CommunicationTimeoutMs ?? 15000))
+            .WithWillDelayInterval(_options.WillDelayIntervalMs ?? 25000)
+            .WithWillMessage(
               new MqttApplicationMessageBuilder()
                   .WithPayloadFormatIndicator(MQTTnet.Protocol.MqttPayloadFormatIndicator.CharacterData)
                   .WithContentType("text/plain")
@@ -45,13 +48,16 @@
                   .WithPayload("Disconnected")
                   .WithRetainFlag(true)
                   .Build()
+            )
+            .WithCleanSession()
+            .Build()
          )
-         .WithCleanSession()
          .Build();
+
 
       // Create a new MQTT client.
       var factory = new MqttFactory();
-      var mqttClient = factory.CreateMqttClient();
+      var mqttClient = factory.CreateManagedMqttClient();
 
       mqttClient.UseConnectedHandler(OnConnected);
       mqttClient.UseDisconnectedHandler(OnDisconnected);
@@ -74,20 +80,20 @@
       private set;
     }
 
-    public IMqttClient MqttClient
+    public IManagedMqttClient MqttClient
     {
       get;
     }
 
-    public async Task Connect(CancellationToken cancellationToken = default)
+    public async Task StartAsync()
     {
       _logger.LogInformation($"Attempting to connect to {_options.MqttBrokerUrl}...");
-      await MqttClient.ConnectAsync(_mqttClientOptions, cancellationToken);
+      await MqttClient.StartAsync(_mqttClientOptions);
     }
 
     public async Task Disconnect()
     {
-      await MqttClient.DisconnectAsync();
+      await MqttClient.StopAsync();
     }
 
     #region IObservable<MqttClientEvent>
@@ -117,30 +123,10 @@
             );
     }
 
-    private async Task OnDisconnected(MqttClientDisconnectedEventArgs e)
+    private Task OnDisconnected(MqttClientDisconnectedEventArgs e)
     {
-      _logger.LogInformation($"Attempting to reconnect to {_options.MqttBrokerUrl}.");
-
-      // Produce the Disconnected Event.
-      OnMqttClientEvent(new MqttClientDisconnectedEvent()
-      {
-        Reason = e.Reason.ToString(),
-      });
-
-      await Task.Delay(TimeSpan.FromSeconds(s_random.Next(2, 12) * 5));
-
-      try
-      {
-        await MqttClient.ConnectAsync(_mqttClientOptions, CancellationToken.None);
-        return;
-      }
-      catch (Exception ex)
-      {
-        _logger.LogInformation($"Reconnection failed.");
-        _logger.LogError($"Exception thrown on Reconnect: {ex.Message}", ex);
-      }
-
-      _logger.LogInformation($"Disconnected from {_options.MqttBrokerUrl}.");
+      _logger.LogInformation($"Disconnected From {_options.MqttBrokerUrl}.");
+      return Task.CompletedTask;
     }
 
     /// <summary>

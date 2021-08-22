@@ -1,8 +1,7 @@
 ﻿namespace beholder_nest
 {
-  using MQTTnet.Client;
+  using MQTTnet.Extensions.ManagedClient;
   using System;
-  using System.Threading;
   using System.Threading.Tasks;
 
   public interface IBeholderMqttClient : IObservable<MqttClientEvent>
@@ -20,12 +19,12 @@
     /// <summary>
     /// Gets the underlying MqttClient implementation.
     /// </summary>
-    IMqttClient MqttClient { get; }
+    IManagedMqttClient MqttClient { get; }
 
     /// <summary>
     /// Start receiving messages from MQTT
     /// </summary>
-    Task Connect(CancellationToken cancellationToken);
+    Task StartAsync();
 
     /// <summary>
     /// Stops receiving messages from MQTT
