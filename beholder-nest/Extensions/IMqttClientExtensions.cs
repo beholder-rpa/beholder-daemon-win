@@ -44,13 +44,13 @@
         ExtensionAttributes = new Dictionary<string, object>()
         {
           { "pubsubname", pubSubName },
-          { "topic", topic },
+          { "topic", pattern },
         }
       };
 
       await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
-                    .WithTopic(topic)
+                    .WithTopic(pattern)
                     .WithPayload(JsonSerializer.Serialize(cloudEvent))
                     .Build(),
                 cancellationToken

@@ -13,12 +13,11 @@
   using MQTTnet.Extensions.ManagedClient;
   using System;
   using System.Collections.Concurrent;
+  using System.Net;
   using System.Threading.Tasks;
 
   public class BeholderMqttClient : IBeholderMqttClient
   {
-    private static readonly Random s_random = new Random();
-
     private readonly BeholderOptions _options;
     private readonly MqttApplicationMessageRouter _router;
     private readonly ConcurrentDictionary<IObserver<MqttClientEvent>, MqttClientEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<MqttClientEvent>, MqttClientEventUnsubscriber>();
@@ -32,7 +31,7 @@
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
       _mqttClientOptions = new ManagedMqttClientOptionsBuilder()
-         .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
+         .WithAutoReconnectDelay(TimeSpan.FromMilliseconds(2500))
          .WithClientOptions(new MqttClientOptionsBuilder()
             .WithClientId($"daemon-{serviceInfo.HostName}")
             .WithWebSocketServer(_options.MqttBrokerUrl)
@@ -87,7 +86,12 @@
 
     public async Task StartAsync()
     {
-      _logger.LogInformation($"Attempting to connect to {_options.MqttBrokerUrl}...");
+      if (!Uri.TryCreate(_options.MqttBrokerUrl, UriKind.Absolute, out Uri brokerUri))
+      {
+        throw new InvalidOperationException($"Unable to start - The specified BrokerUri could not be parsed as a valid uri: {_options.MqttBrokerUrl}");
+      }
+      var hostAddresses = await Dns.GetHostAddressesAsync(brokerUri.Host);
+      _logger.LogInformation($"Attempting to connect to {brokerUri} at {string.Join<IPAddress>(",", hostAddresses)}...");
       await MqttClient.StartAsync(_mqttClientOptions);
     }
 
@@ -123,10 +127,14 @@
             );
     }
 
-    private Task OnDisconnected(MqttClientDisconnectedEventArgs e)
+    private async Task OnDisconnected(MqttClientDisconnectedEventArgs e)
     {
-      _logger.LogInformation($"Disconnected From {_options.MqttBrokerUrl}.");
-      return Task.CompletedTask;
+      if (!Uri.TryCreate(_options.MqttBrokerUrl, UriKind.Absolute, out Uri brokerUri))
+      {
+        throw new InvalidOperationException($"Application Error - The specified BrokerUri could not be parsed as a valid uri: {_options.MqttBrokerUrl}");
+      }
+      var hostAddresses = await Dns.GetHostAddressesAsync(brokerUri.Host);
+      _logger.LogInformation($"Disconnected From {brokerUri} at {string.Join<IPAddress>(",", hostAddresses)}...");
     }
 
     /// <summary>
@@ -134,15 +142,15 @@
     /// </summary>
     /// <param name="e"></param>
     /// <returns></returns>
-    private Task OnApplicationMessageReceived(MqttApplicationMessageReceivedEventArgs e)
+    private async Task OnApplicationMessageReceived(MqttApplicationMessageReceivedEventArgs e)
     {
+      await _router.InterceptApplicationMessageReceivedAsync(e);
+
       // Produce the Message Received Event.
       OnMqttClientEvent(new MqttClientMessageReceivedEvent()
       {
         Topic = e.ApplicationMessage?.Topic,
       });
-
-      return Task.CompletedTask;
     }
 
     /// <summary>

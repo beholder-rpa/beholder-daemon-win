@@ -2,7 +2,6 @@
 {
   using beholder_nest;
   using beholder_nest.Attributes;
-  using beholder_nest.Extensions;
   using beholder_nest.Mqtt;
   using beholder_psionix.Hotkeys;
   using Microsoft.Extensions.Logging;
@@ -13,7 +12,7 @@
   using System.Threading.Tasks;
 
   [MqttController]
-  public class HotKeyController : IDisposable
+  public class HotKeyController
   {
     private readonly ILogger<HotKeyController> _logger;
     private readonly IBeholderMqttClient _beholderClient;
@@ -23,13 +22,6 @@
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
       _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
-
-      HotKeyManager.HotKeyPressed += HotkeyManager_HotKeyPressed;
-    }
-
-    private void HotkeyManager_HotKeyPressed(object sender, HotKeyEventArgs e)
-    {
-      _beholderClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, "beholder/psionix/{HOSTNAME}/hotkeys/pressed", e.Hotkey.ToString()).Forget();
     }
 
     [EventPattern("beholder/psionix/{HOSTNAME}/hotkeys/register")]
@@ -43,6 +35,10 @@
           HotKeyManager.RegisterHotKey(hotkey);
           _logger.LogInformation($"Psionix HotKeys Registered {hotkey}");
         }
+      }
+      else
+      {
+        _logger.LogInformation($"Unable to parse Hotkeys {hotkeysString}");
       }
 
       return Task.CompletedTask;
@@ -60,6 +56,10 @@
           _logger.LogInformation($"Psionix HotKeys Unregistered {hotkey}");
         }
       }
+      else
+      {
+        _logger.LogInformation($"Unable to parse Hotkeys {hotkeysString}");
+      }
 
       return Task.CompletedTask;
     }
@@ -76,26 +76,5 @@
 
       await _beholderClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, "beholder/psionix/{HOSTNAME}/hotkeys/registered_hotkeys", response);
     }
-
-    #region IDisposable
-    protected virtual void Dispose(bool disposing)
-    {
-      if (!_disposedValue)
-      {
-        if (disposing)
-        {
-          HotKeyManager.HotKeyPressed -= HotkeyManager_HotKeyPressed;
-        }
-
-        _disposedValue = true;
-      }
-    }
-
-    public void Dispose()
-    {
-      Dispose(disposing: true);
-      GC.SuppressFinalize(this);
-    }
-    #endregion
   }
 }

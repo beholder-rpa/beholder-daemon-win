@@ -1,11 +1,16 @@
 ﻿namespace beholder_psionix
 {
+  using beholder_nest;
+  using beholder_nest.Extensions;
+  using beholder_nest.Mqtt;
+  using beholder_psionix.Hotkeys;
   using Microsoft.Extensions.Logging;
   using System;
   using System.Collections.Concurrent;
   using System.Collections.Generic;
   using System.Diagnostics;
   using System.Linq;
+  using System.Text;
   using System.Threading.Tasks;
   using System.Timers;
 
@@ -15,21 +20,15 @@
 
     private readonly ConcurrentDictionary<string, (Timer timer, ProcessInfo lastProcessInfo)> _processObservers = new ConcurrentDictionary<string, (Timer timer, ProcessInfo lastProcessInfo)>();
     private readonly ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber>();
-    private readonly ILogger _logger;
-    //private readonly MouseHook _mouseHook;
-    //private readonly KeyboardHook _keyboardHook;
+    private readonly ILogger<BeholderPsionix> _logger;
+    private readonly IBeholderMqttClient _beholderClient;
 
-    public BeholderPsionix(ILogger<BeholderPsionix> logger)
+    public BeholderPsionix(ILogger<BeholderPsionix> logger, IBeholderMqttClient beholderClient)
     {
-      _logger = logger;
+      _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+      _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
 
-      // The following makes the mouse move slowly, and the keyboard doesn't work at all.
-
-      //_mouseHook = new MouseHook();
-      //_mouseHook.OnMouse += MouseMessageIntercepted;
-
-      //_keyboardHook = new KeyboardHook();
-      //_keyboardHook.OnKey += KeyboardMessageIntercepted;
+      HotKeyManager.HotKeyPressed += HotKeyManager_HotKeyPressed;
     }
 
     public bool IsDisposed
@@ -256,22 +255,10 @@
       });
     }
 
-    private void KeyboardMessageIntercepted(object obj, Keys keys)
+    private void HotKeyManager_HotKeyPressed(object sender, HotKeyEventArgs e)
     {
-      //if (NexusConnection != null && NexusConnection.State == HubConnectionState.Connected)
-      //{
-      //    var keyEvent = $"{{{Enum.GetName(typeof(Keys), keys)}}}";
-      //    NexusConnection.SendAsync("TelekinesisReport", "RecieveKey", new object[] { keyEvent });
-      //}
-    }
-
-    private void MouseMessageIntercepted(object obj, MouseButtons buttons)
-    {
-      //if (NexusConnection != null && NexusConnection.State == HubConnectionState.Connected)
-      //{
-      //    var mouseEvent = $"{{{Enum.GetName(typeof(MouseButtons), buttons)}}}";
-      //    NexusConnection.SendAsync("TelekinesisReport", "MousePress ", new object[] { mouseEvent });
-      //}
+      var hotKeyBase64 = Convert.ToBase64String(Encoding.ASCII.GetBytes(e.Hotkey.ToString()));
+      _beholderClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, $"beholder/psionix/{{HOSTNAME}}/hotkeys/pressed/{hotKeyBase64}", e.Hotkey.ToString()).Forget(); _logger.LogInformation($"Psionix registered hotkey was pressed: {e.Hotkey}");
     }
 
     #region IDisposable Support
@@ -290,15 +277,8 @@
               state.Value.timer.Dispose();
             }
           }
-          //if (_mouseHook != null)
-          //{
-          //  _mouseHook.Dispose();
-          //}
 
-          //if (_keyboardHook != null)
-          //{
-          //  _keyboardHook.Dispose();
-          //}
+          HotKeyManager.HotKeyPressed -= HotKeyManager_HotKeyPressed;
         }
 
         IsDisposed = true;

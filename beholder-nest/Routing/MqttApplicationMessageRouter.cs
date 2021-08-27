@@ -29,6 +29,59 @@ namespace beholder_nest.Routing
       get;
     }
 
+    public async Task InterceptApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs e)
+    {
+      var subscriptionMethods = RouteTable.GetTopicSubscriptions(e.ApplicationMessage);
+      if (subscriptionMethods == null || subscriptionMethods.Length == 0)
+      {
+        // Route not found
+        logger.LogDebug($"Skipping message because '{e.ApplicationMessage.Topic}' did not match any known routes.");
+        return;
+      }
+
+      using var scope = applicationServices.CreateScope();
+      foreach (var subscriptionMethod in subscriptionMethods)
+      {
+        Type? declaringType = subscriptionMethod.DeclaringType;
+
+        if (declaringType == null)
+        {
+          throw new InvalidOperationException($"{subscriptionMethod} must have a declaring type.");
+        }
+
+        var classInstance = typeActivator.CreateInstance<object>(scope.ServiceProvider, declaringType);
+
+        ParameterInfo[] parameters = subscriptionMethod.GetParameters();
+
+        if (parameters.Length == 0)
+        {
+          await HandlerInvoker(subscriptionMethod, classInstance, null).ConfigureAwait(false);
+        }
+        else if (parameters.Length == 1 && parameters[0].ParameterType == typeof(MqttApplicationMessage))
+        {
+          try
+          {
+            await HandlerInvoker(subscriptionMethod, classInstance, new object[] { e.ApplicationMessage }).ConfigureAwait(false);
+          }
+          catch (ArgumentException ex)
+          {
+            logger.LogError(ex, $"Unable to match route parameters to all arguments. See inner exception for details.");
+            throw;
+          }
+          catch (TargetInvocationException ex)
+          {
+            logger.LogError(ex.InnerException, $"Unhandled MQTT action exception. See inner exception for details.");
+            throw;
+          }
+          catch (Exception ex)
+          {
+            logger.LogError(ex, "Unable to invoke Mqtt Action.  See inner exception for details.");
+            throw;
+          }
+        }
+      }
+    }
+
     public async Task InterceptApplicationMessagePublishAsync(MqttApplicationMessageInterceptorContext context)
     {
       // Don't process messages sent from the server itself. This avoids footguns like a server failing to publish
