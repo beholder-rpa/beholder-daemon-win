@@ -332,8 +332,8 @@
                   var settings = region.BitmapSettings;
                   if (lastRegionCaptureTimes.ContainsKey(region.Name) == false || DateTime.Now.Subtract(lastRegionCaptureTimes[region.Name]) > TimeSpan.FromSeconds(settings.MaxFps.Value))
                   {
-                    var rawRegionData = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
-                    OnBeholderEyeEvent(new RegionCaptureEvent() { Name = region.Name, Image = rawRegionData });
+                    var regionResult = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
+                    OnBeholderEyeEvent(new RegionCaptureEvent() { Name = region.Name, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
                     lastRegionCaptureTimes.AddOrUpdate(region.Name, DateTime.Now, (key, oldDate) => DateTime.Now);
                   }
                   break;

@@ -95,13 +95,22 @@
 
       await _cacheClient.Base64ByteArraySet(cacheKey, captureEvent.Image);
 
+      var captureInfo = new RegionCaptureInfo()
+      {
+        PrefrontalImageKey = cacheKey,
+        X = captureEvent.RegionRectangle.X,
+        Y = captureEvent.RegionRectangle.Y,
+        Width = captureEvent.RegionRectangle.Width,
+        Height = captureEvent.RegionRectangle.Height,
+      };
+
       // Notify any subscribers that the region is available
       await _beholderClient
         .MqttClient
         .PublishEventAsync(
           BeholderConsts.PubSubName,
           $"beholder/eye/{Environment.MachineName}/region/{captureEvent.Name}",
-          cacheKey
+          captureInfo
         );
     }
 

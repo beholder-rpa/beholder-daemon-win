@@ -280,7 +280,7 @@
       return ms.ToArray();
     }
 
-    public byte[] GetRegion(int x, int y, int width, int height)
+    public (byte[], Rectangle) GetRegion(int x, int y, int width, int height)
     {
       if (x > DesktopWidth) { x = DesktopWidth; }
       if (y > DesktopHeight) { y = DesktopHeight; }
@@ -301,7 +301,7 @@
         var regionImage = image.Clone(i => i.Crop(new SixLabors.ImageSharp.Rectangle(x, y, width, height)));
         regionImage.SaveAsPng(ms);
       }
-      return ms.ToArray();
+      return (ms.ToArray(), new Rectangle(x, y, width, height));
     }
 
     public byte[] GetPointerImage()
