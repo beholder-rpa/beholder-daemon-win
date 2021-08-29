@@ -41,7 +41,7 @@
       //// Eye
       services.AddSingleton<HashAlgorithm>(_sha256);
       services.AddSingleton<BeholderEye>();
-      services.AddSingleton<IObserver<BeholderEyeEvent>, BeholderEyeObserver >();
+      services.AddSingleton<IObserver<BeholderEyeEvent>, BeholderEyeObserver>();
       services.AddSingleton<BeholderEyeContext>();
 
       //// Psionix
