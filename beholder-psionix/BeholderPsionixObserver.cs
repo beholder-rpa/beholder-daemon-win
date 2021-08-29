@@ -2,11 +2,11 @@
 {
   using beholder_nest;
   using beholder_nest.Extensions;
+  using beholder_nest.Mqtt;
+  using beholder_psionix.Hotkeys;
   using Microsoft.Extensions.Logging;
-  using MQTTnet;
   using System;
-  using System.Text.Json;
-  using System.Threading;
+  using System.Text;
   using System.Threading.Tasks;
 
   public class BeholderPsionixObserver : IObserver<BeholderPsionixEvent>
@@ -34,6 +34,9 @@
     {
       switch (psionixEvent)
       {
+        case HotKeyEvent hotKeyEvent:
+          HandleHotKey(hotKeyEvent.HotKey).Forget();
+          break;
         case ProcessChangedEvent processChangedEvent:
           HandleProcessChanged(processChangedEvent.ProcessInfo).Forget();
           break;
@@ -43,15 +46,25 @@
       }
     }
 
+    private async Task HandleHotKey(HotKey hotKey)
+    {
+      var hotKeyBase64 = Convert.ToBase64String(Encoding.ASCII.GetBytes(hotKey.ToString()));
+      await _beholderClient.MqttClient.PublishEventAsync(
+        BeholderConsts.PubSubName,
+        $"beholder/psionix/{{HOSTNAME}}/hotkeys/pressed/{hotKeyBase64}",
+        hotKey.ToString()
+      );
+      _logger.LogInformation($"Psionix registered hotkey was pressed: {hotKey}");
+    }
+
     private async Task HandleProcessChanged(ProcessInfo processInfo)
     {
-      await _beholderClient.MqttClient.PublishAsync(
-          new MqttApplicationMessageBuilder()
-              .WithTopic($"beholder/psionix/{Environment.MachineName}/process_changed")
-              .WithPayload(JsonSerializer.Serialize(processInfo))
-              .Build(),
-          CancellationToken.None
-          );
+      await _beholderClient.MqttClient.PublishEventAsync(
+        BeholderConsts.PubSubName,
+        $"beholder/psionix/{{HOSTNAME}}/process_changed/{processInfo.ProcessName}",
+        processInfo
+      );
+      _logger.LogInformation($"Psionix process changed: {processInfo}");
     }
   }
 }

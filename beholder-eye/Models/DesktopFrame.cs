@@ -280,6 +280,30 @@
       return ms.ToArray();
     }
 
+    public byte[] GetRegion(int x, int y, int width, int height)
+    {
+      if (x > DesktopWidth) { x = DesktopWidth; }
+      if (y > DesktopHeight) { y = DesktopHeight; }
+      if (x < 0) { x = 0; }
+      if (y < 0) { y = 0; }
+      if (width > DesktopWidth) { width = DesktopWidth; }
+      if (height > DesktopHeight) { height = DesktopHeight; }
+      if (width < 0) { width = 0; }
+      if (height < 0) { height = 0; }
+
+      if ((x + width) > DesktopWidth) { width = DesktopWidth - x; }
+      if ((x + height) > DesktopHeight) { height = DesktopHeight - y; }
+
+      var span = new ReadOnlySpan<byte>(DesktopFrameBuffer);
+      using var ms = new MemoryStream();
+      using var image = Image.LoadPixelData<Bgra32>(span, DesktopWidth, DesktopHeight);
+      {
+        var regionImage = image.Clone(i => i.Crop(new SixLabors.ImageSharp.Rectangle(x, y, width, height)));
+        regionImage.SaveAsPng(ms);
+      }
+      return ms.ToArray();
+    }
+
     public byte[] GetPointerImage()
     {
       if (PointerShapeBuffer == null)

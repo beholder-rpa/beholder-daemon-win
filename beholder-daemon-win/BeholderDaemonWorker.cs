@@ -1,5 +1,6 @@
 namespace beholder_daemon_win
 {
+  using beholder_eye;
   using beholder_nest;
   using beholder_nest.Models;
   using beholder_nest.Mqtt;
@@ -15,6 +16,9 @@ namespace beholder_daemon_win
     private readonly ILogger<BeholderDaemonWorker> _logger;
     private readonly IBeholderMqttClient _mqttClient;
     private readonly BeholderPsionix _psionix;
+    private readonly IObserver<BeholderPsionixEvent> _psionixObserver;
+    private readonly BeholderEye _eye;
+    private readonly IObserver<BeholderEyeEvent> _eyeObserver;
     private readonly Lazy<BeholderServiceInfo> _serviceInfo = new Lazy<BeholderServiceInfo>(() =>
     {
       return new BeholderServiceInfo
@@ -24,16 +28,32 @@ namespace beholder_daemon_win
       };
     });
 
-    public BeholderDaemonWorker(IBeholderMqttClient mqttClient, BeholderPsionix psionix, ILogger<BeholderDaemonWorker> logger)
+    public BeholderDaemonWorker(IBeholderMqttClient mqttClient, BeholderPsionix psionix, IObserver<BeholderPsionixEvent> psionixObserver, BeholderEye eye, IObserver<BeholderEyeEvent> eyeObserver, ILogger<BeholderDaemonWorker> logger)
     {
       _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+
       _psionix = psionix ?? throw new ArgumentNullException(nameof(psionix));
+      _psionixObserver = psionixObserver ?? throw new ArgumentNullException(nameof(psionixObserver));
+
+      _eye = eye ?? throw new ArgumentNullException(nameof(eye));
+      _eyeObserver = eyeObserver ?? throw new ArgumentNullException(nameof(eyeObserver));
+
       _logger = logger ?? throw new ArgumentNullException(nameof(logger)); ;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
       await _mqttClient.StartAsync();
+      //await _eye.ObserveWithUnwaveringSight(new ObservationRequest()
+      //{
+      //  AdapterIndex = 0,
+      //  DeviceIndex = 0,
+
+      //}, null, stoppingToken);
+
+      _eye.Subscribe(_eyeObserver);
+      _psionix.Subscribe(_psionixObserver);
+
       while (!stoppingToken.IsCancellationRequested)
       {
         // Perform updates on 

@@ -1,5 +1,6 @@
 ﻿namespace beholder_eye.Controllers
 {
+  using beholder_nest;
   using beholder_nest.Attributes;
   using beholder_nest.Mqtt;
   using Microsoft.Extensions.Logging;
@@ -14,14 +15,14 @@
   public class BeholderEyeController
   {
     private readonly ILogger<BeholderEyeController> _logger;
-    private readonly IMqttService _mqttService;
+    private readonly IBeholderMqttClient _beholderClient;
     private readonly BeholderEye _eye;
     private readonly BeholderEyeContext _context;
 
-    public BeholderEyeController(ILogger<BeholderEyeController> logger, IMqttService mqttService, BeholderEye eye, BeholderEyeContext context)
+    public BeholderEyeController(ILogger<BeholderEyeController> logger, IBeholderMqttClient beholderClient, BeholderEye eye, BeholderEyeContext context)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      _mqttService = mqttService ?? throw new ArgumentNullException(nameof(mqttService));
+      _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
       _eye = eye ?? throw new ArgumentNullException(nameof(eye));
       _context = context ?? throw new ArgumentNullException(nameof(context));
     }
@@ -35,13 +36,12 @@
         beholderEyeInfo.Status = BeholderStatus.Observing;
       }
 
-      await _mqttService.Publisher.PublishAsync(
-          new MqttApplicationMessageBuilder()
-              .WithTopic($"beholder/eye/{Environment.MachineName}/status")
-              .WithPayload(JsonSerializer.Serialize(beholderEyeInfo))
-              .Build(),
-          CancellationToken.None
+      await _beholderClient.MqttClient.PublishEventAsync(
+        BeholderConsts.PubSubName,
+        $"beholder/eye/{{HOSTNAME}}/status",
+        beholderEyeInfo
       );
+      _logger.LogInformation($"Eye provided status: {beholderEyeInfo}");
     }
 
     [EventPattern("beholder/eye/{HOSTNAME}/request_align")]

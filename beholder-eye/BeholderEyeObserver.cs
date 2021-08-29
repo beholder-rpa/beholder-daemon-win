@@ -1,8 +1,9 @@
 ﻿namespace beholder_eye
 {
   using beholder_nest;
+  using beholder_nest.Cache;
   using beholder_nest.Extensions;
-  using Microsoft.Extensions.Caching.Memory;
+  using beholder_nest.Mqtt;
   using Microsoft.Extensions.Logging;
   using MQTTnet;
   using System;
@@ -15,13 +16,13 @@
   {
     private readonly ILogger<BeholderEyeObserver> _logger;
     private readonly IBeholderMqttClient _beholderClient;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheClient _cacheClient;
 
-    public BeholderEyeObserver(ILogger<BeholderEyeObserver> logger, IBeholderMqttClient beholderClient, IMemoryCache cache)
+    public BeholderEyeObserver(ILogger<BeholderEyeObserver> logger, IBeholderMqttClient beholderClient, ICacheClient cacheClient)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
       _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
-      _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+      _cacheClient = cacheClient ?? throw new ArgumentNullException(nameof(cacheClient));
     }
 
     public void OnCompleted()
@@ -49,6 +50,9 @@
           break;
         case MatrixFrameEvent matrixFrameEvent:
           HandleMatrixFrameObserved(matrixFrameEvent.MatrixFrame).Forget();
+          break;
+        case RegionCaptureEvent regionCaptureEvent:
+          HandleRegionCaptureEvent(regionCaptureEvent).Forget();
           break;
         case PointerImageEvent pointerImageEvent:
           HandlePointerImageObserved(pointerImageEvent.Key, pointerImageEvent.Image).Forget();
@@ -84,15 +88,32 @@
       }
     }
 
+    private async Task HandleRegionCaptureEvent(RegionCaptureEvent captureEvent)
+    {
+      // Add the thumbnail image to redis
+      var cacheKey = $"e/{Environment.MachineName}/region/{captureEvent.Name}";
+
+      await _cacheClient.Base64ByteArraySet(cacheKey, captureEvent.Image);
+
+      // Notify any subscribers that the region is available
+      await _beholderClient
+        .MqttClient
+        .PublishEventAsync(
+          BeholderConsts.PubSubName,
+          $"beholder/eye/{Environment.MachineName}/region/{captureEvent.Name}",
+          cacheKey
+        );
+    }
+
     private async Task HandlePointerPositionChanged(PointerPosition pointerPosition)
     {
-      await _beholderClient.MqttClient.PublishAsync(
-          new MqttApplicationMessageBuilder()
-              .WithTopic($"beholder/eye/{Environment.MachineName}/pointer_position")
-              .WithPayload(JsonSerializer.Serialize(pointerPosition))
-              .Build(),
-          CancellationToken.None
-      );
+      await _beholderClient
+        .MqttClient
+        .PublishEventAsync(
+          BeholderConsts.PubSubName,
+          $"beholder/eye/{Environment.MachineName}/pointer_position",
+          pointerPosition
+        );
     }
 
     private async Task HandlePointerImageObserved(string key, byte[] img)
@@ -103,44 +124,21 @@
         Image = $"data:image/png;base64,{Convert.ToBase64String(img)}"
       };
 
-      await _beholderClient.MqttClient.PublishAsync(
-          new MqttApplicationMessageBuilder()
-              .WithTopic($"beholder/eye/{Environment.MachineName}/pointer_image")
-              .WithPayload(JsonSerializer.Serialize(pointerImage))
-              .Build(),
-          CancellationToken.None
-      );
+      await _beholderClient
+        .MqttClient
+        .PublishEventAsync(
+          BeholderConsts.PubSubName,
+          $"beholder/eye/{Environment.MachineName}/pointer_image",
+          pointerImage
+        );
     }
 
-    private Task HandleThumbnailImageObserved(string key, byte[] img)
+    private async Task HandleThumbnailImageObserved(string key, byte[] img)
     {
-      // Add the thumbnail image to the IMemoryCache
+      // Add the thumbnail image to redis
       var cacheKey = $"e/{Environment.MachineName}/thumbnail";
-      _cache.Set(cacheKey, img);
 
-      return Task.CompletedTask;
-
-      // The following is commented out as we're now using the above to store the last thumbnail
-      // image for the host. This is preferable as we're not causing the MQTT broker to have to
-      // deal with thumbnail images, however, at the same time this requires a p2p connection
-      // to the host -- it might be suitable to publish an event indicating a new thumbnail
-      // image is available and what web host(s) it can be retrieved from.
-      // Thusly, keeping this here for now.
-
-      //And also publish on the message bus
-      //var thumbnailImage = new ThumbnailImage
-      //{
-      //    Key = e.key,
-      //    Image = $"data:image/png;base64,{Convert.ToBase64String(e.img)}"
-      //};
-
-      //await _mqttService.Publisher.PublishAsync(
-      //    new MqttApplicationMessageBuilder()
-      //        .WithTopic($"e/{Environment.MachineName}/thumbnail")
-      //        .WithPayload(JsonSerializer.Serialize(thumbnailImage))
-      //        .Build(),
-      //    CancellationToken.None
-      //);
+      await _cacheClient.Base64ByteArraySet(cacheKey, img);
     }
 
     private async Task HandleAlignmentMapGenerated(IList<MatrixPixelLocation> map)

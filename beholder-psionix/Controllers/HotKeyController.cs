@@ -16,7 +16,6 @@
   {
     private readonly ILogger<HotKeyController> _logger;
     private readonly IBeholderMqttClient _beholderClient;
-    private bool _disposedValue;
 
     public HotKeyController(ILogger<HotKeyController> logger, IBeholderMqttClient beholderClient)
     {

@@ -4,8 +4,10 @@
   using beholder_nest;
   using beholder_nest.Models;
   using beholder_psionix;
+  using Microsoft.Extensions.Configuration;
   using Microsoft.Extensions.DependencyInjection;
   using Microsoft.Extensions.Hosting;
+  using System;
   using System.Reflection;
   using System.Security.Cryptography;
 
@@ -16,9 +18,14 @@
     // This method gets called by the runtime. Use this method to add services to the container.
     public static void ConfigureServices(HostBuilderContext hostContext, IServiceCollection services)
     {
+      var beholderOptions = hostContext.Configuration.GetSection("Beholder").Get<BeholderOptions>();
       services.Configure<BeholderOptions>(hostContext.Configuration.GetSection("Beholder"));
 
-      services.AddHttpClient();
+      services.AddHttpClient("beholder", c =>
+      {
+        c.BaseAddress = new Uri($"https://{beholderOptions.BaseUrl}", UriKind.Absolute);
+      });
+
       services.AddSingleton<BeholderServiceInfo>();
       services.AddHostedService<BeholderDaemonWorker>();
 
@@ -34,12 +41,12 @@
       //// Eye
       services.AddSingleton<HashAlgorithm>(_sha256);
       services.AddSingleton<BeholderEye>();
-      //services.AddSingleton<BeholderEyeObserver>();
-      //services.AddSingleton<BeholderEyeContext>();
+      services.AddSingleton<IObserver<BeholderEyeEvent>, BeholderEyeObserver >();
+      services.AddSingleton<BeholderEyeContext>();
 
       //// Psionix
       services.AddSingleton<BeholderPsionix>();
-      services.AddSingleton<BeholderPsionixObserver>();
+      services.AddSingleton<IObserver<BeholderPsionixEvent>, BeholderPsionixObserver>();
     }
   }
 }

@@ -1,5 +1,6 @@
 ﻿namespace beholder_nest
 {
+  using beholder_nest.Cache;
   using beholder_nest.Models;
   using beholder_nest.Routing;
   using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@
         serviceInfo = new BeholderServiceInfo();
       }
 
+      services.AddSingleton<ICacheClient, CacheClient>();
       services.AddSingleton(c => MqttRouteTableFactory.Create(assemblies, serviceInfo));
       services.AddSingleton<ITypeActivatorCache>(new TypeActivatorCache());
       services.AddSingleton<MqttApplicationMessageRouter>();

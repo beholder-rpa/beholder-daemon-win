@@ -1,8 +1,5 @@
 ﻿namespace beholder_psionix
 {
-  using beholder_nest;
-  using beholder_nest.Extensions;
-  using beholder_nest.Mqtt;
   using beholder_psionix.Hotkeys;
   using Microsoft.Extensions.Logging;
   using System;
@@ -10,10 +7,12 @@
   using System.Collections.Generic;
   using System.Diagnostics;
   using System.Linq;
-  using System.Text;
   using System.Threading.Tasks;
   using System.Timers;
 
+  /// <summary>
+  /// Represents an observable object that encapsulates monitoring various system-related resources and notifies subscribers when events occur on those resources.
+  /// </summary>
   public sealed class BeholderPsionix : IObservable<BeholderPsionixEvent>, IDisposable
   {
     public const int DefaultProcessRefreshMs = 100;
@@ -21,12 +20,10 @@
     private readonly ConcurrentDictionary<string, (Timer timer, ProcessInfo lastProcessInfo)> _processObservers = new ConcurrentDictionary<string, (Timer timer, ProcessInfo lastProcessInfo)>();
     private readonly ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber>();
     private readonly ILogger<BeholderPsionix> _logger;
-    private readonly IBeholderMqttClient _beholderClient;
 
-    public BeholderPsionix(ILogger<BeholderPsionix> logger, IBeholderMqttClient beholderClient)
+    public BeholderPsionix(ILogger<BeholderPsionix> logger)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
 
       HotKeyManager.HotKeyPressed += HotKeyManager_HotKeyPressed;
     }
@@ -257,8 +254,7 @@
 
     private void HotKeyManager_HotKeyPressed(object sender, HotKeyEventArgs e)
     {
-      var hotKeyBase64 = Convert.ToBase64String(Encoding.ASCII.GetBytes(e.Hotkey.ToString()));
-      _beholderClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, $"beholder/psionix/{{HOSTNAME}}/hotkeys/pressed/{hotKeyBase64}", e.Hotkey.ToString()).Forget(); _logger.LogInformation($"Psionix registered hotkey was pressed: {e.Hotkey}");
+      OnBeholderPsionixEvent(new HotKeyEvent() { HotKey = e.Hotkey });
     }
 
     #region IDisposable Support

@@ -34,8 +34,8 @@
       set;
     }
 
-    [JsonPropertyName("maxFPS")]
-    public int MaxFPS
+    [JsonPropertyName("maxFps")]
+    public double? MaxFps
     {
       get;
       set;

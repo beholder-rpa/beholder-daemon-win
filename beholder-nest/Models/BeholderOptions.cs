@@ -12,7 +12,10 @@
     public BeholderOptions()
     {
       ApiKey = "1234";
-      MqttBrokerUrl = "wss://beholder-01.local/nexus/mqtt";
+      BaseUrl = "beholder-01.local";
+      RedisPort = 6379;
+      RedisAllowAdmin = true;
+      RedisRetryDelay = 2500;
       HostName = Environment.MachineName;
       Username = "";
       Password = "";
@@ -33,10 +36,40 @@
     }
 
     /// <summary>
-    /// Gets or sets the url of the Mqtt Broker that the beholder daemon will connect to (Defaults to beholder-01.local:1883, the default address of beholder rpi)
+    /// Gets or sets the base Beholder Rpi Url (Defaults to beholder-01.local)
+    /// </summary>
+    [JsonPropertyName("baseUrl")]
+    public string BaseUrl
+    {
+      get;
+      set;
+    }
+
+    /// <summary>
+    /// Gets or the url of the Mqtt Broker that the beholder daemon will connect to (Defaults to wss://beholder-01.local/nexus/mqtt, the default address of beholder rpi)
     /// </summary>
     [JsonPropertyName("mqttBrokerUrl")]
     public string MqttBrokerUrl
+    {
+      get { return $"wss://{BaseUrl}/nexus/mqtt"; }
+    }
+
+    [JsonPropertyName("redisPort")]
+    public int RedisPort
+    {
+      get;
+      set;
+    }
+
+    [JsonPropertyName("redisAllowAdmin")]
+    public bool RedisAllowAdmin
+    {
+      get;
+      set;
+    }
+
+    [JsonPropertyName("redisRetryDelay")]
+    public int RedisRetryDelay
     {
       get;
       set;

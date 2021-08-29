@@ -16,7 +16,7 @@
     private readonly HashAlgorithm _hashAlgorithm;
     private readonly ConcurrentDictionary<string, MatrixPixelLocation[]> _mapCache = new ConcurrentDictionary<string, MatrixPixelLocation[]>();
     private readonly ConcurrentDictionary<IObserver<BeholderEyeEvent>, BeholderEyeEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderEyeEvent>, BeholderEyeEventUnsubscriber>();
-    private object _alignLock = new object();
+    private readonly object _alignLock = new object();
 
     public BeholderEye(ILogger<BeholderEye> logger, HashAlgorithm hashAlgorithm)
     {
@@ -50,14 +50,31 @@
       {
         foreach (var region in observerInfo.Regions)
         {
-          if (region.Kind == ObservationRegionKind.MatrixFrame && region.MatrixSettings == null)
+          switch (region.Kind)
           {
-            throw new ArgumentOutOfRangeException($"Region named {region.Name} was of kind MatrixFrame but did not specify matrix settings.");
-          }
+            case ObservationRegionKind.MatrixFrame:
+              if (region.MatrixSettings == null)
+              {
+                throw new ArgumentOutOfRangeException($"Region named {region.Name} was of kind MatrixFrame but did not specify matrix settings.");
+              }
+              if (region.MatrixSettings.DataFormat == null)
+              {
+                region.MatrixSettings.DataFormat = DataMatrixFormat.MatrixEvents;
+              }
+              break;
+            case ObservationRegionKind.Image:
+              if (region.BitmapSettings == null)
+              {
+                throw new ArgumentOutOfRangeException($"Region named {region.Name} was of kind Image but did not specify bitmap settings.");
+              }
 
-          if (region.MatrixSettings.DataFormat == null)
-          {
-            region.MatrixSettings.DataFormat = DataMatrixFormat.MatrixEvents;
+              if (region.BitmapSettings.MaxFps.HasValue == false)
+              {
+                region.BitmapSettings.MaxFps = 0.25;
+              }
+              break;
+            default:
+              throw new ArgumentOutOfRangeException($"Unknown or unsupported observation region kind: ${region.Kind}");
           }
         }
       }
@@ -120,6 +137,7 @@
         DateTime? lastDesktopThumbnailSent = null;
         PointerPosition lastPointerPosition = null;
         DateTime? lastPointerImageSent = null;
+        var lastRegionCaptureTimes = new ConcurrentDictionary<string, DateTime>();
 
         int lastWidth = 0, lastHeight = 0;
 
@@ -131,7 +149,6 @@
           {
             continue;
           }
-
 
           OnBeholderEyeEvent(new DesktopFrameEvent() { DesktopFrame = desktopFrame });
 
@@ -162,7 +179,7 @@
           {
             var newPointerPosition = desktopFrame.PointerPosition;
 
-            if (!lastPointerPosition.Equals(newPointerPosition))
+            if (lastPointerPosition == null || !lastPointerPosition.Equals(newPointerPosition))
             {
               OnBeholderEyeEvent(new PointerPositionChangedEvent() { PointerPosition = newPointerPosition });
               lastPointerPosition = newPointerPosition;
@@ -312,6 +329,14 @@
                   }
                   break;
                 case ObservationRegionKind.Image:
+                  var settings = region.BitmapSettings;
+                  if (lastRegionCaptureTimes.ContainsKey(region.Name) == false || DateTime.Now.Subtract(lastRegionCaptureTimes[region.Name]) > TimeSpan.FromSeconds(settings.MaxFps.Value))
+                  {
+                    var rawRegionData = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
+                    OnBeholderEyeEvent(new RegionCaptureEvent() { Name = region.Name, Image = rawRegionData });
+                    lastRegionCaptureTimes.AddOrUpdate(region.Name, DateTime.Now, (key, oldDate) => DateTime.Now);
+                  }
+                  break;
                 //TODO: Implement this.
                 default:
                   break;
