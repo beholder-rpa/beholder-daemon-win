@@ -1,11 +1,14 @@
-﻿{
+{
   "profiles": {
     "beholder_daemon_win": {
       "commandName": "Project",
-      "dotnetRunMessages": "true",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
-      }
+      },
+      "dotnetRunMessages": "true"
+    },
+    "beholder_daemon_win_rpi": {
+      "commandName": "Project"
     }
   }
 }
