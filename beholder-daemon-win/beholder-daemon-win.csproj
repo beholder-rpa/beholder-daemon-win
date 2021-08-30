@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\beholder-eye\beholder-eye.csproj" />
     <ProjectReference Include="..\beholder-nest\beholder-nest.csproj" />
+    <ProjectReference Include="..\beholder-occipital\beholder-occipital.csproj" />
     <ProjectReference Include="..\beholder-psionix\beholder-psionix.csproj" />
   </ItemGroup>
 </Project>

@@ -65,17 +65,33 @@
 
     public async Task<byte[]> Base64ByteArrayGet(string key)
     {
-      var redisValue = await Database.StringGetAsync(key, CommandFlags.None);
-      if (!redisValue.HasValue)
-        return default;
+      try
+      {
+        var redisValue = await Database.StringGetAsync(key, CommandFlags.None);
+        if (!redisValue.HasValue)
+          return default;
 
-      return Convert.FromBase64String(redisValue);
+        return Convert.FromBase64String(redisValue);
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError($"Unable to retrieve Base64ByteArray: {ex.Message}", ex);
+        return null;
+      }
     }
 
     public async Task<bool> Base64ByteArraySet(string key, byte[] value, TimeSpan? expiry = null)
     {
-      if (value == null) return false;
-      return await Database.StringSetAsync(key, Convert.ToBase64String(value), expiry, When.Always, CommandFlags.None);
+      try
+      {
+        if (value == null) return false;
+        return await Database.StringSetAsync(key, Convert.ToBase64String(value), expiry, When.Always, CommandFlags.None);
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError($"Unable to store Base64ByteArray: {ex.Message}", ex);
+        return false;
+      }
     }
 
     private void Connection_ErrorMessage(object sender, RedisErrorEventArgs e)

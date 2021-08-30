@@ -3,6 +3,7 @@
   using beholder_eye;
   using beholder_nest;
   using beholder_nest.Models;
+  using beholder_occipital;
   using beholder_psionix;
   using Microsoft.Extensions.Configuration;
   using Microsoft.Extensions.DependencyInjection;
@@ -34,19 +35,23 @@
           Assembly.GetAssembly(typeof(Startup)),
           Assembly.Load("beholder-eye"),
           Assembly.Load("beholder-psionix"),
+          Assembly.Load("beholder-occipital"),
         }
       );
       services.AddSingleton<IBeholderMqttClient, BeholderMqttClient>();
 
-      //// Eye
+      // Eye
       services.AddSingleton<HashAlgorithm>(_sha256);
       services.AddSingleton<BeholderEye>();
       services.AddSingleton<IObserver<BeholderEyeEvent>, BeholderEyeObserver>();
       services.AddSingleton<BeholderEyeContext>();
 
-      //// Psionix
+      // Psionix
       services.AddSingleton<BeholderPsionix>();
       services.AddSingleton<IObserver<BeholderPsionixEvent>, BeholderPsionixObserver>();
+
+      // Occipital
+      services.AddOccipital();
     }
   }
 }

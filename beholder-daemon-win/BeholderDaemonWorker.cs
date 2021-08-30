@@ -4,6 +4,7 @@ namespace beholder_daemon_win
   using beholder_nest;
   using beholder_nest.Models;
   using beholder_nest.Mqtt;
+  using beholder_occipital;
   using beholder_psionix;
   using Microsoft.Extensions.Hosting;
   using Microsoft.Extensions.Logging;
@@ -15,8 +16,13 @@ namespace beholder_daemon_win
   {
     private readonly ILogger<BeholderDaemonWorker> _logger;
     private readonly IBeholderMqttClient _mqttClient;
+
+    private readonly BeholderOccipital _occipital;
+    private readonly IObserver<BeholderOccipitalEvent> _occipitalObserver;
+
     private readonly BeholderPsionix _psionix;
     private readonly IObserver<BeholderPsionixEvent> _psionixObserver;
+
     private readonly BeholderEye _eye;
     private readonly IObserver<BeholderEyeEvent> _eyeObserver;
     private readonly Lazy<BeholderServiceInfo> _serviceInfo = new Lazy<BeholderServiceInfo>(() =>
@@ -30,9 +36,21 @@ namespace beholder_daemon_win
 
     private Task _psionixObserveTask;
 
-    public BeholderDaemonWorker(IBeholderMqttClient mqttClient, BeholderPsionix psionix, IObserver<BeholderPsionixEvent> psionixObserver, BeholderEye eye, IObserver<BeholderEyeEvent> eyeObserver, ILogger<BeholderDaemonWorker> logger)
+    public BeholderDaemonWorker(
+      IBeholderMqttClient mqttClient,
+      BeholderOccipital occipital,
+      IObserver<BeholderOccipitalEvent> occipitalObserver,
+      BeholderPsionix psionix,
+      IObserver<BeholderPsionixEvent> psionixObserver,
+      BeholderEye eye,
+      IObserver<BeholderEyeEvent> eyeObserver,
+      ILogger<BeholderDaemonWorker> logger
+    )
     {
       _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+
+      _occipital = occipital ?? throw new ArgumentNullException(nameof(occipital));
+      _occipitalObserver = occipitalObserver ?? throw new ArgumentNullException(nameof(occipitalObserver));
 
       _psionix = psionix ?? throw new ArgumentNullException(nameof(psionix));
       _psionixObserver = psionixObserver ?? throw new ArgumentNullException(nameof(psionixObserver));
@@ -49,6 +67,7 @@ namespace beholder_daemon_win
 
       _eye.Subscribe(_eyeObserver);
       _psionix.Subscribe(_psionixObserver);
+      _occipital.Subscribe(_occipitalObserver);
 
       _psionixObserveTask = _psionix.Observe(stoppingToken);
 

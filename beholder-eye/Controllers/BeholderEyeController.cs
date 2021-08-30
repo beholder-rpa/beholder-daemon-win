@@ -41,7 +41,7 @@
 
       _eye.AddOrUpdateFocusRegion(region.Name, region.BitmapSettings);
 
-      _logger.LogInformation($"Eye Updated Region: {region.Name}");
+      _logger.LogInformation($"Eye Updated Region: {region.Name} - X: {region.BitmapSettings?.X} Y: {region.BitmapSettings?.Y} Width: {region.BitmapSettings?.Width} Height: {region.BitmapSettings?.Height}");
       return Task.CompletedTask;
     }
 

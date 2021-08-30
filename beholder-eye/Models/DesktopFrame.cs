@@ -292,7 +292,7 @@
       if (height < 0) { height = 0; }
 
       if ((x + width) > DesktopWidth) { width = DesktopWidth - x; }
-      if ((x + height) > DesktopHeight) { height = DesktopHeight - y; }
+      if ((y + height) > DesktopHeight) { height = DesktopHeight - y; }
 
       if (width == 0 || height == 0)
       {
