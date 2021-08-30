@@ -303,6 +303,23 @@
     }
 
     /// <summary>
+    /// Provids a mechanism to remove focus regions while the eye is currently observing.
+    /// </summary>
+    /// <param name="focusRegionName"></param>
+    public void RemoveFocusRegion(string focusRegionName)
+    {
+      if (Status == BeholderStatus.NotObserving)
+      {
+        throw new InvalidOperationException("The Beholder Eye is currently not observing. Set the desired focus regions of a new ObservationRequest and invoke ObserveWithUnwaveringSight with that request.");
+      }
+
+      if (_focusRegions.ContainsKey(focusRegionName))
+      {
+        _focusRegions.Remove(focusRegionName);
+      }
+    }
+
+    /// <summary>
     /// Produces Beholder Eye Events
     /// </summary>
     /// <param name="beholderEyeEvent"></param>

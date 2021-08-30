@@ -45,6 +45,22 @@
       return Task.CompletedTask;
     }
 
+    [EventPattern("beholder/eye/{HOSTNAME}/remove_focus_region")]
+    public Task RemoveFocusRegion(MqttApplicationMessage message)
+    {
+      // If the eye isn't currently observing, noop.
+      if (_eye.Status == BeholderStatus.NotObserving)
+      {
+        return Task.CompletedTask;
+      }
+
+      var regionNameString = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
+      _eye.RemoveFocusRegion(regionNameString);
+
+      _logger.LogInformation($"Eye Removed Region: {regionNameString}");
+      return Task.CompletedTask;
+    }
+
     [EventPattern("beholder/eye/{HOSTNAME}/report_status")]
     public async Task ReportStatus(MqttApplicationMessage message)
     {
