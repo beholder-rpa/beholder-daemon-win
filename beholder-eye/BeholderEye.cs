@@ -276,8 +276,11 @@
             if (lastRegionCaptureTimes.ContainsKey(focusRegionName) == false || DateTime.Now.Subtract(lastRegionCaptureTimes[focusRegionName]) > TimeSpan.FromSeconds(settings.MaxFps.Value))
             {
               var regionResult = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
-              OnBeholderEyeEvent(new RegionCaptureEvent() { Name = focusRegionName, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
-              lastRegionCaptureTimes.AddOrUpdate(focusRegionName, DateTime.Now, (key, oldDate) => DateTime.Now);
+              if (regionResult.Item1 != null)
+              {
+                OnBeholderEyeEvent(new RegionCaptureEvent() { Name = focusRegionName, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
+                lastRegionCaptureTimes.AddOrUpdate(focusRegionName, DateTime.Now, (key, oldDate) => DateTime.Now);
+              }
             }
           }
         };

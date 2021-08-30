@@ -294,6 +294,11 @@
       if ((x + width) > DesktopWidth) { width = DesktopWidth - x; }
       if ((x + height) > DesktopHeight) { height = DesktopHeight - y; }
 
+      if (width == 0 || height == 0)
+      {
+        return (null, new Rectangle(0, 0, 0, 0));
+      }
+
       var span = new ReadOnlySpan<byte>(DesktopFrameBuffer);
       using var ms = new MemoryStream();
       using var image = Image.LoadPixelData<Bgra32>(span, DesktopWidth, DesktopHeight);
