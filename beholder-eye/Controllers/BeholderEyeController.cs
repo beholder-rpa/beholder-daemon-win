@@ -27,14 +27,31 @@
       _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
+    [EventPattern("beholder/eye/{HOSTNAME}/add_or_update_focus_region")]
+    public Task AddOrUpdateFocusRegion(MqttApplicationMessage message)
+    {
+      // If the eye isn't currently observing, noop.
+      if (_eye.Status == BeholderStatus.NotObserving)
+      {
+        return Task.CompletedTask;
+      }
+
+      var requestJson = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
+      var region = JsonSerializer.Deserialize<ObservationRegion>(requestJson);
+
+      _eye.AddOrUpdateFocusRegion(region.Name, region.BitmapSettings);
+
+      _logger.LogInformation($"Eye Updated Region: {region.Name}");
+      return Task.CompletedTask;
+    }
+
     [EventPattern("beholder/eye/{HOSTNAME}/report_status")]
     public async Task ReportStatus(MqttApplicationMessage message)
     {
-      var beholderEyeInfo = new BeholderEyeInfo();
-      if (_context.Observer != null)
+      var beholderEyeInfo = new BeholderEyeInfo
       {
-        beholderEyeInfo.Status = BeholderStatus.Observing;
-      }
+        Status = _eye.Status
+      };
 
       await _beholderClient.MqttClient.PublishEventAsync(
         BeholderConsts.PubSubName,

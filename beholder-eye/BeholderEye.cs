@@ -18,6 +18,17 @@
     private readonly ConcurrentDictionary<IObserver<BeholderEyeEvent>, BeholderEyeEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderEyeEvent>, BeholderEyeEventUnsubscriber>();
     private readonly object _alignLock = new object();
 
+    private bool _streamDesktopThumbnails = true;
+    private DesktopThumbnailStreamSettings _desktopThumbnailStreamSettings;
+
+    private bool _watchPointerPosition = true;
+
+    private bool _streamPointerImage = true;
+    private PointerImageStreamSettings _pointerImageStreamSettings;
+
+    private Dictionary<string, MatrixSettings> _matrixRegions;
+    private Dictionary<string, ImageSettings> _focusRegions;
+
     public BeholderEye(ILogger<BeholderEye> logger, HashAlgorithm hashAlgorithm)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -30,108 +41,38 @@
       set;
     }
 
+    /// <summary>
+    /// Gets a value that indicates the status of the Beholder Eye
+    /// </summary>
+    public BeholderStatus Status
+    {
+      get;
+      private set;
+    }
+
     public IDisposable Subscribe(IObserver<BeholderEyeEvent> observer)
     {
       return _observers.GetOrAdd(observer, new BeholderEyeEventUnsubscriber(this, observer));
     }
 
     public Task ObserveWithUnwaveringSight(
-        ObservationRequest observerInfo,
+        ObservationRequest spec,
         Func<string, IList<MatrixPixelLocation>> regionAlignmentMapCallback,
         CancellationToken token)
     {
-      if (observerInfo == null)
+      if (Status == BeholderStatus.Observing)
       {
-        throw new ArgumentNullException(nameof(observerInfo));
+        throw new InvalidOperationException("Beholder's Eye is already observing.");
       }
 
-      // Check that matrix regions are all good.
-      if (observerInfo.Regions != null)
-      {
-        foreach (var region in observerInfo.Regions)
-        {
-          switch (region.Kind)
-          {
-            case ObservationRegionKind.MatrixFrame:
-              if (region.MatrixSettings == null)
-              {
-                throw new ArgumentOutOfRangeException($"Region named {region.Name} was of kind MatrixFrame but did not specify matrix settings.");
-              }
-              if (region.MatrixSettings.DataFormat == null)
-              {
-                region.MatrixSettings.DataFormat = DataMatrixFormat.MatrixEvents;
-              }
-              break;
-            case ObservationRegionKind.Image:
-              if (region.BitmapSettings == null)
-              {
-                throw new ArgumentOutOfRangeException($"Region named {region.Name} was of kind Image but did not specify bitmap settings.");
-              }
-
-              if (region.BitmapSettings.MaxFps.HasValue == false)
-              {
-                region.BitmapSettings.MaxFps = 0.25;
-              }
-              break;
-            default:
-              throw new ArgumentOutOfRangeException($"Unknown or unsupported observation region kind: ${region.Kind}");
-          }
-        }
-      }
-
-      var streamDesktopThumbnails = true;
-      if (observerInfo.StreamDesktopThumbnail.HasValue)
-      {
-        streamDesktopThumbnails = observerInfo.StreamDesktopThumbnail.Value;
-      }
-
-      DesktopThumbnailStreamSettings desktopThumbnailStreamSettings = new DesktopThumbnailStreamSettings();
-      // Initialize desktop thumbnail stream settings from defaults or if supplied in request.
-      if (streamDesktopThumbnails)
-      {
-        if (observerInfo.DesktopThumbnailStreamSettings != null)
-        {
-          if (observerInfo.DesktopThumbnailStreamSettings.MaxFps.HasValue && observerInfo.DesktopThumbnailStreamSettings.MaxFps.Value > 0)
-          {
-            desktopThumbnailStreamSettings.MaxFps = observerInfo.DesktopThumbnailStreamSettings.MaxFps.Value;
-          }
-
-          if (observerInfo.DesktopThumbnailStreamSettings.ScaleFactor.HasValue && observerInfo.DesktopThumbnailStreamSettings.ScaleFactor.Value > 0)
-          {
-            desktopThumbnailStreamSettings.ScaleFactor = observerInfo.DesktopThumbnailStreamSettings.ScaleFactor.Value;
-          }
-        }
-      }
-
-      var watchPointerPosition = true;
-      if (observerInfo.WatchPointerPosition.HasValue)
-      {
-        watchPointerPosition = observerInfo.WatchPointerPosition.Value;
-      }
-
-      var streamPointerImage = true;
-      if (observerInfo.StreamPointerImage.HasValue)
-      {
-        streamPointerImage = observerInfo.StreamPointerImage.Value;
-      }
-
-      PointerImageStreamSettings pointerImageStreamSettings = new PointerImageStreamSettings();
-      // Initialize pointer image stream settings from defaults or if supplied in request.
-      if (streamPointerImage)
-      {
-        if (observerInfo.PointerImageStreamSettings != null)
-        {
-          if (observerInfo.PointerImageStreamSettings.MaxFps.HasValue && observerInfo.PointerImageStreamSettings.MaxFps.Value > 0)
-          {
-            pointerImageStreamSettings.MaxFps = observerInfo.PointerImageStreamSettings.MaxFps.Value;
-          }
-        }
-      }
-
+      // Validate the observation request and set mutatable instance settings.
+      ValidateObservationRequest(spec);
+      
       // Observe the screen on a seperate thread.
       return Task.Factory.StartNew(() =>
       {
-        var duplicatorInstance = new DesktopDuplicator(_logger, observerInfo.AdapterIndex ?? 0, observerInfo.DeviceIndex ?? 0);
+        Status = BeholderStatus.Observing;
+        var duplicatorInstance = new DesktopDuplicator(_logger, spec.AdapterIndex ?? 0, spec.DeviceIndex ?? 0);
 
         int? lastMatrixFrameIdSent = null;
         DateTime? lastDesktopThumbnailSent = null;
@@ -159,12 +100,12 @@
             lastHeight = desktopFrame.DesktopHeight;
           }
 
-          if (streamDesktopThumbnails)
+          if (_streamDesktopThumbnails)
           {
-            if (!lastDesktopThumbnailSent.HasValue || DateTime.Now.Subtract(lastDesktopThumbnailSent.Value) > TimeSpan.FromSeconds(desktopThumbnailStreamSettings.MaxFps.Value))
+            if (!lastDesktopThumbnailSent.HasValue || DateTime.Now.Subtract(lastDesktopThumbnailSent.Value) > TimeSpan.FromSeconds(_desktopThumbnailStreamSettings.MaxFps.Value))
             {
-              var width = (int)Math.Ceiling(desktopFrame.DesktopWidth * desktopThumbnailStreamSettings.ScaleFactor.Value);
-              var height = (int)Math.Ceiling(desktopFrame.DesktopHeight * desktopThumbnailStreamSettings.ScaleFactor.Value);
+              var width = (int)Math.Ceiling(desktopFrame.DesktopWidth * _desktopThumbnailStreamSettings.ScaleFactor.Value);
+              var height = (int)Math.Ceiling(desktopFrame.DesktopHeight * _desktopThumbnailStreamSettings.ScaleFactor.Value);
 
               var thumbnailImage = desktopFrame.GetThumbnailImage(width, height);
 
@@ -175,7 +116,7 @@
             }
           }
 
-          if (watchPointerPosition)
+          if (_watchPointerPosition)
           {
             var newPointerPosition = desktopFrame.PointerPosition;
 
@@ -186,11 +127,11 @@
             }
           }
 
-          if (streamPointerImage)
+          if (_streamPointerImage)
           {
             var pointerData = desktopFrame.GetPointerImage();
             if ((!lastPointerImageSent.HasValue
-                      || DateTime.Now.Subtract(lastDesktopThumbnailSent.Value) > TimeSpan.FromSeconds(pointerImageStreamSettings.MaxFps.Value))
+                      || DateTime.Now.Subtract(lastDesktopThumbnailSent.Value) > TimeSpan.FromSeconds(_pointerImageStreamSettings.MaxFps.Value))
                       && pointerData != null
                       && desktopFrame.PointerPosition.Visible == true)
             {
@@ -282,71 +223,83 @@
             }
           }
 
-          if (observerInfo.Regions != null)
+          foreach(var matrixRegion in _matrixRegions)
           {
-            foreach (var region in observerInfo.Regions)
+            var matrixRegionName = matrixRegion.Key;
+            var settings = matrixRegion.Value;
+
+            if (settings.Map == null)
             {
-              switch (region.Kind)
+              if (regionAlignmentMapCallback != null)
               {
-                case ObservationRegionKind.MatrixFrame:
-                  if (region.MatrixSettings.Map == null)
-                  {
-                    if (regionAlignmentMapCallback != null)
-                    {
-                      try
-                      {
-                        region.MatrixSettings.Map = regionAlignmentMapCallback.Invoke(region.Name);
-                      }
-                      catch (Exception)
-                      {
-                        _logger.LogError($"An exception occurred while calling the alignment map callback for region {region.Name}");
-                      }
-                    }
-                  }
-
-                  // Optimize the map for data retrieval.
-                  if (!_mapCache.ContainsKey(region.Name))
-                  {
-                    var map = region.MatrixSettings.Map.ToArray();
-                    _mapCache.TryAdd(region.Name, map);
-                  }
-
-                  var rawData = desktopFrame.DecodeMatrixFrameRaw(_mapCache[region.Name]);
-                  var matrixFrame = MatrixFrame.CreateMatrixFrame(rawData, region.MatrixSettings);
-
-                  // If we recieved a matrix frame, be sure that we haven't already seen it or that the frame counter has looped back around.
-                  if (matrixFrame != null)
-                  {
-                    if (lastMatrixFrameIdSent.HasValue == false ||
-                              matrixFrame.FrameId > lastMatrixFrameIdSent ||
-                                  (lastMatrixFrameIdSent > matrixFrame.FrameId &&
-                                   lastMatrixFrameIdSent - matrixFrame.FrameId > 1000)
-                             )
-                    {
-                      OnBeholderEyeEvent(new MatrixFrameEvent() { MatrixFrame = matrixFrame });
-                      lastMatrixFrameIdSent = matrixFrame.FrameId;
-                    }
-                  }
-                  break;
-                case ObservationRegionKind.Image:
-                  var settings = region.BitmapSettings;
-                  if (lastRegionCaptureTimes.ContainsKey(region.Name) == false || DateTime.Now.Subtract(lastRegionCaptureTimes[region.Name]) > TimeSpan.FromSeconds(settings.MaxFps.Value))
-                  {
-                    var regionResult = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
-                    OnBeholderEyeEvent(new RegionCaptureEvent() { Name = region.Name, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
-                    lastRegionCaptureTimes.AddOrUpdate(region.Name, DateTime.Now, (key, oldDate) => DateTime.Now);
-                  }
-                  break;
-                //TODO: Implement this.
-                default:
-                  break;
+                try
+                {
+                  settings.Map = regionAlignmentMapCallback.Invoke(matrixRegionName);
+                }
+                catch (Exception)
+                {
+                  _logger.LogError($"An exception occurred while calling the alignment map callback for region {matrixRegionName}");
+                }
               }
+            }
+
+            // Optimize the map for data retrieval.
+            if (!_mapCache.ContainsKey(matrixRegionName))
+            {
+              var map = settings.Map.ToArray();
+              _mapCache.TryAdd(matrixRegionName, map);
+            }
+
+            var rawData = desktopFrame.DecodeMatrixFrameRaw(_mapCache[matrixRegionName]);
+            var matrixFrame = MatrixFrame.CreateMatrixFrame(rawData, settings);
+
+            // If we recieved a matrix frame, be sure that we haven't already seen it or that the frame counter has looped back around.
+            if (matrixFrame != null)
+            {
+              if (lastMatrixFrameIdSent.HasValue == false ||
+                        matrixFrame.FrameId > lastMatrixFrameIdSent ||
+                            (lastMatrixFrameIdSent > matrixFrame.FrameId &&
+                             lastMatrixFrameIdSent - matrixFrame.FrameId > 1000)
+                       )
+              {
+                OnBeholderEyeEvent(new MatrixFrameEvent() { MatrixFrame = matrixFrame });
+                lastMatrixFrameIdSent = matrixFrame.FrameId;
+              }
+            }
+          }
+
+          foreach (var focusRegion in _focusRegions)
+          {
+            var focusRegionName = focusRegion.Key;
+            var settings = focusRegion.Value;
+
+            if (lastRegionCaptureTimes.ContainsKey(focusRegionName) == false || DateTime.Now.Subtract(lastRegionCaptureTimes[focusRegionName]) > TimeSpan.FromSeconds(settings.MaxFps.Value))
+            {
+              var regionResult = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
+              OnBeholderEyeEvent(new RegionCaptureEvent() { Name = focusRegionName, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
+              lastRegionCaptureTimes.AddOrUpdate(focusRegionName, DateTime.Now, (key, oldDate) => DateTime.Now);
             }
           }
         };
 
-        _logger.LogInformation("The Beholder has focused its attention elsewhere.");
+        Status = BeholderStatus.NotObserving;
+        _logger.LogInformation("The Beholder's eye has focused its attention elsewhere.");
       }, token, TaskCreationOptions.None, TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// Provides a mechanism to add or update focus regions while the eye is currently observing.
+    /// </summary>
+    /// <param name="focusRegionName"></param>
+    /// <param name="settings"></param>
+    public void AddOrUpdateFocusRegion(string focusRegionName, ImageSettings settings)
+    {
+      if (Status == BeholderStatus.NotObserving)
+      {
+        throw new InvalidOperationException("The Beholder Eye is currently not observing. Set the desired focus regions of a new ObservationRequest and invoke ObserveWithUnwaveringSight with that request.");
+      }
+
+      ValidateAndUpdateFocusRegion(focusRegionName, settings);
     }
 
     /// <summary>
@@ -366,6 +319,116 @@
           // Do Nothing.
         }
       });
+    }
+
+    /// <summary>
+    /// Validates and ensures defaults are set on the observation specification
+    /// </summary>
+    /// <param name="spec"></param>
+    private void ValidateObservationRequest(ObservationRequest spec)
+    {
+      if (spec == null)
+      {
+        throw new ArgumentNullException(nameof(spec));
+      }
+
+      // Check that focus regions are all good.
+      _matrixRegions = new Dictionary<string, MatrixSettings>();
+      _focusRegions = new Dictionary<string, ImageSettings>();
+
+      foreach (var region in spec.Regions)
+      {
+        switch (region.Kind)
+        {
+          case ObservationRegionKind.MatrixFrame:
+            if (region.MatrixSettings == null)
+            {
+              throw new ArgumentOutOfRangeException($"Region named {region.Name} was of kind MatrixFrame but did not specify matrix settings.");
+            }
+            if (region.MatrixSettings.DataFormat == null)
+            {
+              region.MatrixSettings.DataFormat = DataMatrixFormat.MatrixEvents;
+            }
+
+            _matrixRegions[region.Name] = region.MatrixSettings;
+            break;
+          case ObservationRegionKind.Image:
+            ValidateAndUpdateFocusRegion(region.Name, region.BitmapSettings);
+            break;
+          default:
+            throw new ArgumentOutOfRangeException($"Unknown or unsupported observation region kind: ${region.Kind}");
+        }
+      }
+
+      _streamDesktopThumbnails = true;
+      if (spec.StreamDesktopThumbnail.HasValue)
+      {
+        _streamDesktopThumbnails = spec.StreamDesktopThumbnail.Value;
+      }
+
+      _desktopThumbnailStreamSettings = new DesktopThumbnailStreamSettings();
+      // Initialize desktop thumbnail stream settings from defaults or if supplied in request.
+      if (_streamDesktopThumbnails)
+      {
+        if (spec.DesktopThumbnailStreamSettings != null)
+        {
+          if (spec.DesktopThumbnailStreamSettings.MaxFps.HasValue && spec.DesktopThumbnailStreamSettings.MaxFps.Value > 0)
+          {
+            _desktopThumbnailStreamSettings.MaxFps = spec.DesktopThumbnailStreamSettings.MaxFps.Value;
+          }
+
+          if (spec.DesktopThumbnailStreamSettings.ScaleFactor.HasValue && spec.DesktopThumbnailStreamSettings.ScaleFactor.Value > 0)
+          {
+            _desktopThumbnailStreamSettings.ScaleFactor = spec.DesktopThumbnailStreamSettings.ScaleFactor.Value;
+          }
+        }
+      }
+
+      _watchPointerPosition = true;
+      if (spec.WatchPointerPosition.HasValue)
+      {
+        _watchPointerPosition = spec.WatchPointerPosition.Value;
+      }
+
+      _streamPointerImage = true;
+      if (spec.StreamPointerImage.HasValue)
+      {
+        _streamPointerImage = spec.StreamPointerImage.Value;
+      }
+
+      _pointerImageStreamSettings = new PointerImageStreamSettings();
+
+      // Initialize pointer image stream settings from defaults or if supplied in request.
+      if (_streamPointerImage)
+      {
+        if (spec.PointerImageStreamSettings != null)
+        {
+          if (spec.PointerImageStreamSettings.MaxFps.HasValue && spec.PointerImageStreamSettings.MaxFps.Value > 0)
+          {
+            _pointerImageStreamSettings.MaxFps = spec.PointerImageStreamSettings.MaxFps.Value;
+          }
+        }
+      }
+    }
+
+    private void ValidateAndUpdateFocusRegion(string focusRegionName, ImageSettings settings)
+    {
+      if (string.IsNullOrWhiteSpace(focusRegionName))
+      {
+        throw new ArgumentNullException(nameof(focusRegionName));
+      }
+
+      if (settings == null)
+      {
+        throw new ArgumentOutOfRangeException($"Region named {focusRegionName} was of kind Image but did not specify image settings.");
+      }
+
+      if (settings.MaxFps.HasValue == false)
+      {
+        settings.MaxFps = 0.25;
+      }
+
+      _focusRegions[focusRegionName] = settings;
     }
 
     #region Nested Classes

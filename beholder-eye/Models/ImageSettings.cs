@@ -4,7 +4,7 @@
   using System.Text.Json;
   using System.Text.Json.Serialization;
 
-  public class ImageSettings
+  public record ImageSettings
   {
     [JsonPropertyName("x")]
     public int X

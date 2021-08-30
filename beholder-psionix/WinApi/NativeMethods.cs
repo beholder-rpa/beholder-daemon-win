@@ -28,6 +28,9 @@
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetWindowPlacement(IntPtr hWnd, ref WindowPlacement lpwndpl);
 
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hwnd, ref Rect rectangle);
+
     /// <summary>
     /// See http://www.pinvoke.net/default.aspx/user32/SetWinEventHook.html
     /// </summary>

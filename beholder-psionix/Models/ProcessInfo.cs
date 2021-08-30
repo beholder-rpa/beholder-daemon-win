@@ -8,49 +8,49 @@
     public bool Exists
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("id")]
     public int? Id
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("processName")]
     public string ProcessName
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("mainWindowTitle")]
     public string MainWindowTitle
     {
       get;
-      set;
-    }
-
-    [JsonPropertyName("workingSet64")]
-    public long? WorkingSet64
-    {
-      get;
-      set;
+      init;
     }
 
     [JsonPropertyName("processStatus")]
     public ProcessStatus? ProcessStatus
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("windowPlacement")]
     public WindowStatus? WindowStatus
     {
       get;
-      set;
+      init;
+    }
+
+    [JsonPropertyName("windowPosition")]
+    public WindowPosition WindowPosition
+    {
+      get;
+      init;
     }
   }
 }

@@ -4,7 +4,7 @@
   using System.Text.Json;
   using System.Text.Json.Serialization;
 
-  public class ObservationRegion
+  public record ObservationRegion
   {
     [JsonPropertyName("name")]
     public string Name

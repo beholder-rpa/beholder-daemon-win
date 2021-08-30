@@ -28,6 +28,8 @@ namespace beholder_daemon_win
       };
     });
 
+    private Task _psionixObserveTask;
+
     public BeholderDaemonWorker(IBeholderMqttClient mqttClient, BeholderPsionix psionix, IObserver<BeholderPsionixEvent> psionixObserver, BeholderEye eye, IObserver<BeholderEyeEvent> eyeObserver, ILogger<BeholderDaemonWorker> logger)
     {
       _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
@@ -44,15 +46,11 @@ namespace beholder_daemon_win
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
       await _mqttClient.StartAsync();
-      //await _eye.ObserveWithUnwaveringSight(new ObservationRequest()
-      //{
-      //  AdapterIndex = 0,
-      //  DeviceIndex = 0,
-
-      //}, null, stoppingToken);
 
       _eye.Subscribe(_eyeObserver);
       _psionix.Subscribe(_psionixObserver);
+
+      _psionixObserveTask = _psionix.Observe(stoppingToken);
 
       while (!stoppingToken.IsCancellationRequested)
       {

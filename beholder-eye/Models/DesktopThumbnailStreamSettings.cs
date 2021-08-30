@@ -2,7 +2,7 @@
 {
   using System.Text.Json.Serialization;
 
-  public class DesktopThumbnailStreamSettings
+  public record DesktopThumbnailStreamSettings
   {
     public DesktopThumbnailStreamSettings()
     {

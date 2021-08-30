@@ -2,7 +2,7 @@
 {
   using System.Text.Json.Serialization;
 
-  public class PointerImageStreamSettings
+  public record PointerImageStreamSettings
   {
     public PointerImageStreamSettings()
     {

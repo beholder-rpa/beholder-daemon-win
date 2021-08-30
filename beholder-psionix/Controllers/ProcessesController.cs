@@ -30,7 +30,6 @@
     {
       var processes = _psionix
           .GetProcesses()
-          .OrderByDescending(p => p.WorkingSet64)
           .Take(25);
 
       await _mqttService.Publisher.PublishAsync(

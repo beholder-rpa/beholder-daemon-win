@@ -7,8 +7,9 @@
   using System.Collections.Generic;
   using System.Diagnostics;
   using System.Linq;
+  using System.Threading;
   using System.Threading.Tasks;
-  using System.Timers;
+  using Timer = System.Timers.Timer;
 
   /// <summary>
   /// Represents an observable object that encapsulates monitoring various system-related resources and notifies subscribers when events occur on those resources.
@@ -21,6 +22,8 @@
     private readonly ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderPsionixEvent>, BeholderPsionixEventUnsubscriber>();
     private readonly ILogger<BeholderPsionix> _logger;
 
+    private ProcessInfo _activeProcess;
+
     public BeholderPsionix(ILogger<BeholderPsionix> logger)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -32,6 +35,15 @@
     {
       get;
       set;
+    }
+
+    /// <summary>
+    /// Gets a value that indicates the status of the Beholder Psionix
+    /// </summary>
+    public BeholderStatus Status
+    {
+      get;
+      private set;
     }
 
     public IList<ProcessInfo> GetProcesses()
@@ -93,45 +105,78 @@
 
       var foregroundWindowIntPtr = NativeMethods.GetForegroundWindow();
 
-      var processInfo = new ProcessInfo()
-      {
-        Exists = true,
-        Id = process.Id,
-        ProcessName = process.ProcessName,
-        MainWindowTitle = process.MainWindowTitle,
-        WorkingSet64 = process.WorkingSet64
-      };
-
+      var processStatus = ProcessStatus.Unknown;
       if (process != null)
       {
         if (process.MainWindowHandle == foregroundWindowIntPtr)
         {
-          processInfo.ProcessStatus = ProcessStatus.Active;
+          processStatus = ProcessStatus.Active;
         }
         else
         {
-          processInfo.ProcessStatus = ProcessStatus.Running;
+          processStatus = ProcessStatus.Running;
         }
       }
 
       var placement = new WindowPlacement();
+      var windowStatus = WindowStatus.Hidden;
       if (NativeMethods.GetWindowPlacement(process.MainWindowHandle, ref placement))
       {
         switch (placement.showCmd)
         {
           case 1:
-            processInfo.WindowStatus = WindowStatus.ShowNormal;
+            windowStatus = WindowStatus.ShowNormal;
             break;
           case 2:
-            processInfo.WindowStatus = WindowStatus.Minimize;
+            windowStatus = WindowStatus.Minimize;
             break;
           case 3:
-            processInfo.WindowStatus = WindowStatus.Maximized;
+            windowStatus = WindowStatus.Maximized;
             break;
         }
       }
 
-      return processInfo;
+      Rect position = new Rect();
+      NativeMethods.GetWindowRect(process.MainWindowHandle, ref position);
+
+      return new ProcessInfo()
+      {
+        Exists = true,
+        Id = process.Id,
+        ProcessName = process.ProcessName,
+        MainWindowTitle = process.MainWindowTitle,
+        ProcessStatus = processStatus,
+        WindowStatus = windowStatus,
+        WindowPosition = new WindowPosition(position),
+      };
+    }
+
+    public Task Observe(CancellationToken token)
+    {
+      if (Status == BeholderStatus.Observing)
+      {
+        throw new InvalidOperationException("Beholder's Psionix is already observing.");
+      }
+
+      // Observe the screen on a seperate thread.
+      return Task.Factory.StartNew(() =>
+      {
+        Status = BeholderStatus.Observing;
+        _logger.LogInformation("The indeterminable logic of the Beholder's mental acquity is now focused upon the system...");
+        while(!token.IsCancellationRequested)
+        {
+          var currentActiveProcess = GetActiveProcess();
+          if (currentActiveProcess != _activeProcess)
+          {
+            _activeProcess = currentActiveProcess;
+            OnBeholderPsionixEvent(new ActiveProcessChangedEvent() { ProcessInfo = _activeProcess });
+          }
+          Task.Delay(500);
+        }
+
+        Status = BeholderStatus.NotObserving;
+        _logger.LogInformation("The Beholder's Psionix have focused its attention elsewhere.");
+      }, token, TaskCreationOptions.None, TaskScheduler.Default);
     }
 
     public ICollection<string> GetObservedProcesses()
@@ -164,7 +209,7 @@
         {
           var processInfo = GetProcessInfo(processName);
 
-          if (state.lastProcessInfo == null || state.lastProcessInfo != processInfo with { WorkingSet64 = state.lastProcessInfo.WorkingSet64 })
+          if (state.lastProcessInfo == null || state.lastProcessInfo != processInfo with { })
           {
             if (_processObservers.TryUpdate(processName, (state.timer, processInfo), state))
             {

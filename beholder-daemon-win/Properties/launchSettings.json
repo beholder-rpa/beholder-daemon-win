@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "beholder_daemon_win": {
+    "beholder_daemon_win_dev": {
       "commandName": "Project",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"

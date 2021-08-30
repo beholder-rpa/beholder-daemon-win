@@ -37,6 +37,9 @@
         case HotKeyEvent hotKeyEvent:
           HandleHotKey(hotKeyEvent.HotKey).Forget();
           break;
+        case ActiveProcessChangedEvent activeProcessChangedEvent:
+          HandleActiveProcessChanged(activeProcessChangedEvent.ProcessInfo).Forget();
+          break;
         case ProcessChangedEvent processChangedEvent:
           HandleProcessChanged(processChangedEvent.ProcessInfo).Forget();
           break;
@@ -55,6 +58,15 @@
         hotKey.ToString()
       );
       _logger.LogInformation($"Psionix registered hotkey was pressed: {hotKey}");
+    }
+
+    private async Task HandleActiveProcessChanged(ProcessInfo processInfo)
+    {
+      await _beholderClient.MqttClient.PublishEventAsync(
+        BeholderConsts.PubSubName,
+        $"beholder/psionix/{{HOSTNAME}}/active_process_changed",
+        processInfo
+      );
     }
 
     private async Task HandleProcessChanged(ProcessInfo processInfo)

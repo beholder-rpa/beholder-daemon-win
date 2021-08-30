@@ -4,7 +4,7 @@
   using System.Text.Json;
   using System.Text.Json.Serialization;
 
-  public class MatrixSettings
+  public record MatrixSettings
   {
     /// <summary>
     /// An ordered list of points whose values will indicate the data values.
