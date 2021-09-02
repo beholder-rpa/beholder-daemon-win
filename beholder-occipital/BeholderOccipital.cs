@@ -54,7 +54,7 @@
         throw new InvalidOperationException("QueryImagePrefrontalKey must be specified");
       }
 
-      _logger.LogInformation($"Performing Object Detection using {request.QueryImagePrefrontalKey}, {request.TargetImagePrefrontalKey}");
+      _logger.LogTrace($"Performing Object Detection using {request.QueryImagePrefrontalKey}, {request.TargetImagePrefrontalKey}");
 
       await Task.Run(async () =>
       {
@@ -215,7 +215,11 @@
         }
 
         // Create and return the result
-        var objectDetectionEvent = new ObjectDetectionEvent();
+        var objectDetectionEvent = new ObjectDetectionEvent()
+        {
+          QueryImagePrefrontalKey = request.QueryImagePrefrontalKey
+        };
+
         foreach (var locationsResultPoly in locationsResult)
         {
           var poly = new ObjectPoly();

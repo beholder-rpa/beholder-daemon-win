@@ -35,7 +35,7 @@
       switch (occipitalEvent)
       {
         case ObjectDetectionEvent objectDetectionEvent:
-          HandleObjectDetection(objectDetectionEvent.Locations).Forget();
+          HandleObjectDetection(objectDetectionEvent.QueryImagePrefrontalKey, objectDetectionEvent.Locations).Forget();
           break;
         default:
           _logger.LogWarning($"Unhandled or unknown BeholderOccipitalEvent: {occipitalEvent}");
@@ -43,11 +43,11 @@
       }
     }
 
-    private async Task HandleObjectDetection(IList<ObjectPoly> objectLocations)
+    private async Task HandleObjectDetection(string queryImageKey, IList<ObjectPoly> objectLocations)
     {
       await _beholderClient.MqttClient.PublishEventAsync(
         BeholderConsts.PubSubName,
-        $"beholder/occipital/{{HOSTNAME}}/detected_objects",
+        $"beholder/occipital/{{HOSTNAME}}/detected_objects/{queryImageKey}",
         objectLocations
       );
 

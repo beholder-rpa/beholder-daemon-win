@@ -10,10 +10,16 @@
       Locations = new List<ObjectPoly>();
     }
 
+    public string QueryImagePrefrontalKey
+    {
+      get;
+      init;
+    }
+
     public IList<ObjectPoly> Locations
     {
       get;
-      set;
+      init;
     }
   }
 }

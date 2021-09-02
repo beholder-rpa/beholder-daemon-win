@@ -39,15 +39,15 @@
       mask.SetTo(new Scalar(255));
 
       int nonZero = Cv2.CountNonZero(mask);
-      _logger.LogInformation($"Original Match Count: {nonZero}");
+      _logger.LogTrace($"Original Match Count: {nonZero}");
       if (nonZero > 0)
       {
         nonZero = ApplyDistanceRatioMatchCulling(matches, mask, RatioThreshold);
-        _logger.LogInformation($"Match Count after distance-ratio match culling: {nonZero}");
+        _logger.LogTrace($"Match Count after distance-ratio match culling: {nonZero}");
       }
       else
       {
-        _logger.LogInformation($"Skipped distance-rotation match culling - no matches.");
+        _logger.LogTrace($"Skipped distance-rotation match culling - no matches.");
       }
 
       if (nonZero > 0)
@@ -55,16 +55,16 @@
         if (SkipScaleRotationCulling == false)
         {
           nonZero = ApplyScaleRotationMatchCulling(matches, queryKeypoints, trainKeypoints, mask, ScaleIncrement, RotationBins);
-          _logger.LogInformation($"Match Count after scale-rotation match culling: {nonZero}");
+          _logger.LogTrace($"Match Count after scale-rotation match culling: {nonZero}");
         }
         else
         {
-          _logger.LogInformation($"Skipped scale-rotation match culling - skip scale-rotation match specified.");
+          _logger.LogTrace($"Skipped scale-rotation match culling - skip scale-rotation match specified.");
         }
       }
       else
       {
-        _logger.LogInformation($"Skipped scale-rotation match culling - no matches.");
+        _logger.LogTrace($"Skipped scale-rotation match culling - no matches.");
       }
 
       MatIndexer<byte> maskIndexer = mask.GetGenericIndexer<byte>();
