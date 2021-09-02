@@ -1,4 +1,4 @@
-﻿namespace beholder_eye
+﻿namespace beholder_psionix
 {
   using System.Text.Json.Serialization;
 

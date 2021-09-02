@@ -8,6 +8,7 @@
   using Microsoft.Extensions.Configuration;
   using Microsoft.Extensions.DependencyInjection;
   using Microsoft.Extensions.Hosting;
+  using Microsoft.Extensions.Logging;
   using System;
   using System.Reflection;
   using System.Security.Cryptography;
@@ -19,6 +20,14 @@
     // This method gets called by the runtime. Use this method to add services to the container.
     public static void ConfigureServices(HostBuilderContext hostContext, IServiceCollection services)
     {
+      services.AddLogging(options =>
+      {
+        options.AddSimpleConsole(c =>
+        {
+          c.TimestampFormat = "[yyyy-MM-dd HH:mm:ss] ";
+        });
+      });
+
       var beholderOptions = hostContext.Configuration.GetSection("Beholder").Get<BeholderOptions>();
       services.Configure<BeholderOptions>(hostContext.Configuration.GetSection("Beholder"));
 
@@ -43,7 +52,7 @@
       // Eye
       services.AddSingleton<HashAlgorithm>(_sha256);
       services.AddSingleton<BeholderEye>();
-      services.AddSingleton<IObserver<BeholderEyeEvent>, BeholderEyeObserver>();
+      services.AddSingleton<BeholderEyeObserver>();
       services.AddSingleton<BeholderEyeContext>();
 
       // Psionix

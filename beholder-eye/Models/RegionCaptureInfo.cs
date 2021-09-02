@@ -8,35 +8,35 @@
     public string PrefrontalImageKey
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("x")]
     public int X
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("y")]
     public int Y
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("width")]
     public int Width
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("height")]
     public int Height
     {
       get;
-      set;
+      init;
     }
   }
 }

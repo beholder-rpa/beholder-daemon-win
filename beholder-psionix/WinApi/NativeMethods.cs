@@ -48,6 +48,13 @@
     [DllImport("Kernel32")]
     public static extern bool SetConsoleCtrlHandler(ConsoleCtrlEventHandler handler, bool add);
 
+    /// <summary>
+    /// Retrieves the cursor's position, in screen coordinates.
+    /// </summary>
+    /// <see>See MSDN documentation for further information.</see>
+    [DllImport("user32.dll")]
+    public static extern bool GetCursorPos(out Point lpPoint);
+
     public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
     public delegate bool ConsoleCtrlEventHandler(CtrlType sig);

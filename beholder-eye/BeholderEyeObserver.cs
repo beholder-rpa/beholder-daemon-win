@@ -8,6 +8,7 @@
   using MQTTnet;
   using System;
   using System.Collections.Generic;
+  using System.Security.Cryptography;
   using System.Text.Json;
   using System.Threading;
   using System.Threading.Tasks;
@@ -17,12 +18,18 @@
     private readonly ILogger<BeholderEyeObserver> _logger;
     private readonly IBeholderMqttClient _beholderClient;
     private readonly ICacheClient _cacheClient;
+    private readonly RedisCacheClient _redisCacheClient;
+    private readonly HashAlgorithm _hashAlgorithm;
 
-    public BeholderEyeObserver(ILogger<BeholderEyeObserver> logger, IBeholderMqttClient beholderClient, ICacheClient cacheClient)
+    private byte[] _lastPointerHash;
+
+    public BeholderEyeObserver(ILogger<BeholderEyeObserver> logger, IBeholderMqttClient beholderClient, ICacheClient cacheClient, RedisCacheClient redisCacheClient, HashAlgorithm hashAlgorithm)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
       _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
       _cacheClient = cacheClient ?? throw new ArgumentNullException(nameof(cacheClient));
+      _redisCacheClient = redisCacheClient ?? throw new ArgumentNullException(nameof(redisCacheClient));
+      _hashAlgorithm = hashAlgorithm ?? throw new ArgumentNullException(nameof(hashAlgorithm));
     }
 
     public void OnCompleted()
@@ -55,7 +62,7 @@
           HandleRegionCaptureEvent(regionCaptureEvent).Forget();
           break;
         case PointerImageEvent pointerImageEvent:
-          HandlePointerImageObserved(pointerImageEvent.Key, pointerImageEvent.Image).Forget();
+          HandlePointerImageObserved(pointerImageEvent.Image).Forget();
           break;
         case PointerPositionChangedEvent pointerPositionChangedEvent:
           HandlePointerPositionChanged(pointerPositionChangedEvent.PointerPosition).Forget();
@@ -67,6 +74,10 @@
           _logger.LogWarning($"Unhandled or unknown BeholderEyeEvent: {eyeEvent}");
           break;
       }
+    }
+
+    public void Pulse()
+    {
     }
 
     private async Task HandleMatrixFrameObserved(MatrixFrame matrixFrame)
@@ -125,12 +136,20 @@
         );
     }
 
-    private async Task HandlePointerImageObserved(string key, byte[] img)
+    private async Task HandlePointerImageObserved(byte[] pointerData)
     {
+      var hash = _hashAlgorithm.ComputeHash(pointerData);
+      if (_lastPointerHash == hash)
+      {
+        return;
+      }
+
+      _lastPointerHash = hash;
+
       var pointerImage = new PointerImage
       {
-        Key = key,
-        Image = $"data:image/png;base64,{Convert.ToBase64String(img)}"
+        Key = $"Eye_Pointer_{Convert.ToBase64String(hash)}.png",
+        Image = $"data:image/png;base64,{Convert.ToBase64String(pointerData)}"
       };
 
       await _beholderClient
@@ -147,7 +166,7 @@
       // Add the thumbnail image to redis
       var cacheKey = $"e/{Environment.MachineName}/thumbnail";
 
-      await _cacheClient.Base64ByteArraySet(cacheKey, img);
+      await _redisCacheClient.Base64ByteArraySet(cacheKey, img);
     }
 
     private async Task HandleAlignmentMapGenerated(IList<MatrixPixelLocation> map)

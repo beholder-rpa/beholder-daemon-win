@@ -1,5 +1,6 @@
 ﻿namespace beholder_eye
 {
+  using beholder_nest.Extensions;
   using Microsoft.Extensions.Logging;
   using System;
   using System.Collections.Concurrent;
@@ -13,7 +14,6 @@
   public class BeholderEye : IObservable<BeholderEyeEvent>
   {
     private readonly ILogger _logger;
-    private readonly HashAlgorithm _hashAlgorithm;
     private readonly ConcurrentDictionary<string, MatrixPixelLocation[]> _mapCache = new ConcurrentDictionary<string, MatrixPixelLocation[]>();
     private readonly ConcurrentDictionary<IObserver<BeholderEyeEvent>, BeholderEyeEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderEyeEvent>, BeholderEyeEventUnsubscriber>();
     private readonly object _alignLock = new object();
@@ -29,10 +29,9 @@
     private Dictionary<string, MatrixSettings> _matrixRegions;
     private Dictionary<string, ImageSettings> _focusRegions;
 
-    public BeholderEye(ILogger<BeholderEye> logger, HashAlgorithm hashAlgorithm)
+    public BeholderEye(ILogger<BeholderEye> logger)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      _hashAlgorithm = hashAlgorithm ?? throw new ArgumentNullException(nameof(hashAlgorithm));
     }
 
     public AlignRequest AlignRequest
@@ -76,7 +75,6 @@
 
         int? lastMatrixFrameIdSent = null;
         DateTime? lastDesktopThumbnailSent = null;
-        PointerPosition lastPointerPosition = null;
         DateTime? lastPointerImageSent = null;
         var lastRegionCaptureTimes = new ConcurrentDictionary<string, DateTime>();
 
@@ -118,13 +116,8 @@
 
           if (_watchPointerPosition)
           {
-            var newPointerPosition = desktopFrame.PointerPosition;
-
-            if (lastPointerPosition == null || !lastPointerPosition.Equals(newPointerPosition))
-            {
-              OnBeholderEyeEvent(new PointerPositionChangedEvent() { PointerPosition = newPointerPosition });
-              lastPointerPosition = newPointerPosition;
-            }
+            var newPointerPosition = desktopFrame.PointerPosition with { };
+            OnBeholderEyeEvent(new PointerPositionChangedEvent() { PointerPosition = newPointerPosition });
           }
 
           if (_streamPointerImage)
@@ -135,10 +128,7 @@
                       && pointerData != null
                       && desktopFrame.PointerPosition.Visible == true)
             {
-              var hash = _hashAlgorithm.ComputeHash(pointerData);
-              var key = $"Eye_Pointer_{Convert.ToBase64String(hash)}.png";
-
-              OnBeholderEyeEvent(new PointerImageEvent() { Key = key, Image = pointerData });
+              OnBeholderEyeEvent(new PointerImageEvent() { Image = pointerData });
             }
           }
 
@@ -355,6 +345,11 @@
       // Check that focus regions are all good.
       _matrixRegions = new Dictionary<string, MatrixSettings>();
       _focusRegions = new Dictionary<string, ImageSettings>();
+
+      if (spec.Regions == null)
+      {
+        spec.Regions = new List<ObservationRegion>();
+      }
 
       foreach (var region in spec.Regions)
       {

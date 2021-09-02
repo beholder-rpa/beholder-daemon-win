@@ -23,6 +23,7 @@
     private readonly ILogger<BeholderPsionix> _logger;
 
     private ProcessInfo _activeProcess;
+    private PointerPosition _pointerPosition;
 
     public BeholderPsionix(ILogger<BeholderPsionix> logger)
     {
@@ -63,8 +64,8 @@
     public ProcessInfo GetActiveProcess()
     {
       var foregroundWindowIntPtr = NativeMethods.GetForegroundWindow();
-      var currentProcess = Process.GetProcesses()
-          .FirstOrDefault(p => p.MainWindowHandle == foregroundWindowIntPtr);
+      var _ = NativeMethods.GetWindowThreadProcessId(foregroundWindowIntPtr, out int foregroundWindowPid);
+      var currentProcess = Process.GetProcessById(foregroundWindowPid);
 
       if (currentProcess == null)
       {
@@ -72,6 +73,22 @@
       }
 
       return GetProcessInfo(currentProcess, currentProcess.ProcessName);
+    }
+
+    public static PointerPosition GetPointerPosition()
+    {
+      var result = NativeMethods.GetCursorPos(out Point lpPoint);
+      if (!result)
+      {
+        throw new InvalidOperationException("Error Obtaining CursorPos");
+      }
+
+      return new PointerPosition()
+      {
+        X = lpPoint.X,
+        Y = lpPoint.Y,
+        Visible = true,
+      };
     }
 
     /// <summary>
@@ -171,7 +188,14 @@
             _activeProcess = currentActiveProcess;
             OnBeholderPsionixEvent(new ActiveProcessChangedEvent() { ProcessInfo = _activeProcess });
           }
-          Task.Delay(500);
+
+          var currentPointerPosition = GetPointerPosition();
+          if (currentPointerPosition != _pointerPosition)
+          {
+            _pointerPosition = currentPointerPosition;
+            OnBeholderPsionixEvent(new PointerPositionChangedEvent() { PointerPosition = _pointerPosition });
+          }
+          Task.Delay(100);
         }
 
         Status = BeholderStatus.NotObserving;

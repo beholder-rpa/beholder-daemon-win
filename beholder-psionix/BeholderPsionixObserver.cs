@@ -43,6 +43,9 @@
         case ProcessChangedEvent processChangedEvent:
           HandleProcessChanged(processChangedEvent.ProcessInfo).Forget();
           break;
+        case PointerPositionChangedEvent pointerPositionChangedEvent:
+          HandlePointerPositionChanged(pointerPositionChangedEvent.PointerPosition).Forget();
+          break;
         default:
           _logger.LogWarning($"Unhandled or unknown BeholderPsionixEvent: {psionixEvent}");
           break;
@@ -77,6 +80,17 @@
         processInfo
       );
       _logger.LogInformation($"Psionix process changed: {processInfo}");
+    }
+
+    private async Task HandlePointerPositionChanged(PointerPosition pointerPosition)
+    {
+      await _beholderClient
+        .MqttClient
+        .PublishEventAsync(
+          BeholderConsts.PubSubName,
+          $"beholder/psionix/{{HOSTNAME}}/pointer_position",
+          pointerPosition
+        );
     }
   }
 }

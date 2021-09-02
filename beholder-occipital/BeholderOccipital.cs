@@ -5,9 +5,16 @@
   using beholder_occipital.ObjectDetection;
   using Microsoft.Extensions.Logging;
   using OpenCvSharp;
+  using SixLabors.ImageSharp;
+  using SixLabors.ImageSharp.Formats;
+  using SixLabors.ImageSharp.PixelFormats;
+  using SixLabors.ImageSharp.Processing;
   using System;
   using System.Collections.Concurrent;
   using System.Collections.Generic;
+  using System.IO;
+  using System.Linq;
+  using System.Threading;
   using System.Threading.Tasks;
   using Point = OpenCvSharp.Point;
 
@@ -35,7 +42,7 @@
       return _observers.GetOrAdd(observer, new BeholderOccipitalEventUnsubscriber(this, observer));
     }
 
-    public async void DetectObject(ObjectDetectionRequest request)
+    public async Task DetectObject(ObjectDetectionRequest request, CancellationToken cancellationToken = default)
     {
       if (string.IsNullOrWhiteSpace(request.QueryImagePrefrontalKey))
       {
@@ -49,143 +56,182 @@
 
       _logger.LogInformation($"Performing Object Detection using {request.QueryImagePrefrontalKey}, {request.TargetImagePrefrontalKey}");
 
-      var queryImageBytes = await _cacheClient.Base64ByteArrayGet(request.QueryImagePrefrontalKey);
-      if (queryImageBytes == default)
+      await Task.Run(async () =>
       {
-        _logger.LogError($"Query Image from Cache using key {request.QueryImagePrefrontalKey} was empty");
-        return;
-      }
-      var targetImageBytes = await _cacheClient.Base64ByteArrayGet(request.TargetImagePrefrontalKey);
-      if (targetImageBytes == default)
-      {
-        _logger.LogError($"Target Image from Cache using key {request.TargetImagePrefrontalKey} was empty");
-        return;
-      }
-
-      using var queryImage = Cv2.ImDecode(queryImageBytes, ImreadModes.Color);
-      using var trainImage = Cv2.ImDecode(targetImageBytes, ImreadModes.Color);
-
-      if (queryImage.Empty())
-      {
-        throw new InvalidOperationException("The query image is empty.");
-      }
-
-      if (trainImage.Empty())
-      {
-        throw new InvalidOperationException("The train image is empty.");
-      }
-
-      var locationsResult = new List<IEnumerable<Point>>();
-
-      DMatch[][] knn_matches = _matchProcessor.ProcessAndObtainMatches(queryImage, trainImage, out KeyPoint[] queryKeyPoints, out KeyPoint[] trainKeyPoints);
-
-      if (request.MatchMaskSettings == null)
-      {
-        _matchMaskFactory.RatioThreshold = 0.76f;
-        _matchMaskFactory.ScaleIncrement = 2.0f;
-        _matchMaskFactory.RotationBins = 20;
-      }
-      else
-      {
-        _matchMaskFactory.RatioThreshold = request.MatchMaskSettings.RatioThreshold;
-        _matchMaskFactory.ScaleIncrement = request.MatchMaskSettings.ScaleIncrement;
-        _matchMaskFactory.RotationBins = request.MatchMaskSettings.RotationBins;
-      }
-
-      using var mask = _matchMaskFactory.CreateMatchMask(knn_matches, queryKeyPoints, trainKeyPoints, out var allGoodMatches);
-      var goodMatches = new List<DMatch>(allGoodMatches);
-      while (goodMatches.Count > 4)
-      {
-        // Use Homeography to obtain a perspective-corrected rectangle of the target in the query image.
-        var sourcePoints = new Point2f[goodMatches.Count];
-        var destinationPoints = new Point2f[goodMatches.Count];
-        for (int i = 0; i < goodMatches.Count; i++)
+        var queryImageBytes = await _cacheClient.Base64ByteArrayGet(request.QueryImagePrefrontalKey);
+        if (queryImageBytes == default)
         {
-          DMatch match = goodMatches[i];
-          sourcePoints[i] = queryKeyPoints[match.QueryIdx].Pt;
-          destinationPoints[i] = trainKeyPoints[match.TrainIdx].Pt;
+          _logger.LogError($"Query Image from Cache using key {request.QueryImagePrefrontalKey} was empty");
+          return;
+        }
+        var targetImageBytes = await _cacheClient.Base64ByteArrayGet(request.TargetImagePrefrontalKey);
+        if (targetImageBytes == default)
+        {
+          _logger.LogError($"Target Image from Cache using key {request.TargetImagePrefrontalKey} was empty");
+          return;
         }
 
-        Point[] targetPoints = null;
-        using var homography = Cv2.FindHomography(InputArray.Create(sourcePoints), InputArray.Create(destinationPoints), HomographyMethods.Ransac, 5.0);
+        // If image pre-processors are specified, run them
+        foreach (var imagePreProcessor in request.ImagePreProcessors)
         {
-          if (homography.Rows > 0)
+          switch (imagePreProcessor.Kind)
           {
-            Point2f[] queryCorners = {
+            case ProcessorKind.Scale:
+              {
+                byte[] fnResize(byte[] img)
+                {
+                  if (!imagePreProcessor.ScaleFactor.HasValue)
+                  {
+                    return img;
+                  }
+
+                  using var ms = new MemoryStream();
+                  using var image = Image.Load<Rgba32>(img);
+
+                  var size = new SixLabors.ImageSharp.Size()
+                  {
+                    Width = (int)(image.Width * imagePreProcessor.ScaleFactor.Value),
+                    Height = (int)(image.Height * imagePreProcessor.ScaleFactor.Value),
+                  };
+
+                  image.Mutate(i => i.Resize(size));
+                  image.SaveAsPng(ms);
+
+                  return ms.ToArray();
+                }
+
+                queryImageBytes = fnResize(queryImageBytes);
+                targetImageBytes = fnResize(queryImageBytes);
+              }
+              break;
+          }
+        }
+
+        using var queryImage = Cv2.ImDecode(queryImageBytes, ImreadModes.Color);
+        using var trainImage = Cv2.ImDecode(targetImageBytes, ImreadModes.Color);
+
+        if (queryImage.Empty())
+        {
+          throw new InvalidOperationException("The query image is empty.");
+        }
+
+        if (trainImage.Empty())
+        {
+          throw new InvalidOperationException("The train image is empty.");
+        }
+
+        var locationsResult = new List<IEnumerable<Point>>();
+
+        DMatch[][] knn_matches = _matchProcessor.ProcessAndObtainMatches(queryImage, trainImage, out KeyPoint[] queryKeyPoints, out KeyPoint[] trainKeyPoints);
+
+        if (request.MatchMaskSettings == null)
+        {
+          _matchMaskFactory.RatioThreshold = 0.76f;
+          _matchMaskFactory.ScaleIncrement = 2.0f;
+          _matchMaskFactory.RotationBins = 20;
+        }
+        else
+        {
+          _matchMaskFactory.RatioThreshold = request.MatchMaskSettings.RatioThreshold;
+          _matchMaskFactory.ScaleIncrement = request.MatchMaskSettings.ScaleIncrement;
+          _matchMaskFactory.RotationBins = request.MatchMaskSettings.RotationBins;
+        }
+
+        using var mask = _matchMaskFactory.CreateMatchMask(knn_matches, queryKeyPoints, trainKeyPoints, out var allGoodMatches);
+        var goodMatches = new List<DMatch>(allGoodMatches);
+        while (goodMatches.Count > 4 && cancellationToken.IsCancellationRequested == false)
+        {
+          // Use Homeography to obtain a perspective-corrected rectangle of the target in the query image.
+          var sourcePoints = new Point2f[goodMatches.Count];
+          var destinationPoints = new Point2f[goodMatches.Count];
+          for (int i = 0; i < goodMatches.Count; i++)
+          {
+            DMatch match = goodMatches[i];
+            sourcePoints[i] = queryKeyPoints[match.QueryIdx].Pt;
+            destinationPoints[i] = trainKeyPoints[match.TrainIdx].Pt;
+          }
+
+          Point[] targetPoints = null;
+          using var homography = Cv2.FindHomography(InputArray.Create(sourcePoints), InputArray.Create(destinationPoints), HomographyMethods.Ransac, 5.0);
+          {
+            if (homography.Rows > 0)
+            {
+              Point2f[] queryCorners = {
               new Point2f(0, 0),
               new Point2f(queryImage.Cols, 0),
               new Point2f(queryImage.Cols, queryImage.Rows),
               new Point2f(0, queryImage.Rows)
             };
 
-            Point2f[] dest = Cv2.PerspectiveTransform(queryCorners, homography);
-            targetPoints = new Point[dest.Length];
-            for (int i = 0; i < dest.Length; i++)
-            {
-              targetPoints[i] = dest[i].ToPoint();
+              Point2f[] dest = Cv2.PerspectiveTransform(queryCorners, homography);
+              targetPoints = new Point[dest.Length];
+              for (int i = 0; i < dest.Length; i++)
+              {
+                targetPoints[i] = dest[i].ToPoint();
+              }
             }
+          }
+
+          var matchesToRemove = new List<DMatch>();
+
+          if (targetPoints != null)
+          {
+            locationsResult.Add(targetPoints);
+
+            // Remove matches within bounding rectangle
+            for (int i = 0; i < goodMatches.Count; i++)
+            {
+              DMatch match = goodMatches[i];
+              var pt = trainKeyPoints[match.TrainIdx].Pt;
+              var inPoly = Cv2.PointPolygonTest(targetPoints, pt, false);
+              if (inPoly == 1)
+              {
+                matchesToRemove.Add(match);
+              }
+            }
+          }
+
+          // If we're no longer doing meaningful work, break out of the loop
+          if (matchesToRemove.Count == 0)
+          {
+            break;
+          }
+
+          foreach (var match in matchesToRemove)
+          {
+            goodMatches.Remove(match);
           }
         }
 
-        var matchesToRemove = new List<DMatch>();
-
-        if (targetPoints != null)
+        // If an output image prefrontal key is specified, generate an output image and store it in prefrontal state
+        if (!string.IsNullOrWhiteSpace(request.OutputImagePrefrontalKey))
         {
-          locationsResult.Add(targetPoints);
+          byte[] maskBytes = new byte[mask.Rows * mask.Cols];
+          Cv2.Polylines(trainImage, locationsResult, true, new Scalar(255, 0, 0), 3, LineTypes.AntiAlias);
+          using var outImg = new Mat();
+          Cv2.DrawMatches(queryImage, queryKeyPoints, trainImage, trainKeyPoints, allGoodMatches, outImg, new Scalar(0, 255, 0), flags: DrawMatchesFlags.NotDrawSinglePoints);
+          var outImageBytes = outImg.ImEncode();
+          await _cacheClient.Base64ByteArraySet(request.OutputImagePrefrontalKey, outImageBytes);
+        }
 
-          // Remove matches within bounding rectangle
-          for (int i = 0; i < goodMatches.Count; i++)
+        // Create and return the result
+        var objectDetectionEvent = new ObjectDetectionEvent();
+        foreach (var locationsResultPoly in locationsResult)
+        {
+          var poly = new ObjectPoly();
+          foreach (var locationResultPolyPoint in locationsResultPoly)
           {
-            DMatch match = goodMatches[i];
-            var pt = trainKeyPoints[match.TrainIdx].Pt;
-            var inPoly = Cv2.PointPolygonTest(targetPoints, pt, false);
-            if (inPoly == 1)
+            poly.Points.Add(new Models.Point()
             {
-              matchesToRemove.Add(match);
-            }
+              X = locationResultPolyPoint.X,
+              Y = locationResultPolyPoint.Y,
+            });
           }
+          objectDetectionEvent.Locations.Add(poly);
         }
 
-        // If we're no longer doing meaningful work, break out of the loop
-        if (matchesToRemove.Count == 0)
-        {
-          break;
-        }
-
-        foreach (var match in matchesToRemove)
-        {
-          goodMatches.Remove(match);
-        }
-      }
-
-      // If an output image prefrontal key is specified, generate an output image and store it in prefrontal state
-      if (!string.IsNullOrWhiteSpace(request.OutputImagePrefrontalKey))
-      {
-        byte[] maskBytes = new byte[mask.Rows * mask.Cols];
-        Cv2.Polylines(trainImage, locationsResult, true, new Scalar(255, 0, 0), 3, LineTypes.AntiAlias);
-        using var outImg = new Mat();
-        Cv2.DrawMatches(queryImage, queryKeyPoints, trainImage, trainKeyPoints, allGoodMatches, outImg, new Scalar(0, 255, 0), flags: DrawMatchesFlags.NotDrawSinglePoints);
-        var outImageBytes = outImg.ImEncode();
-        await _cacheClient.Base64ByteArraySet(request.OutputImagePrefrontalKey, outImageBytes);
-      }
-
-      // Create and return the result
-      var objectDetectionEvent = new ObjectDetectionEvent();
-      foreach (var locationsResultPoly in locationsResult)
-      {
-        var poly = new ObjectPoly();
-        foreach (var locationResultPolyPoint in locationsResultPoly)
-        {
-          poly.Points.Add(new Models.Point()
-          {
-            X = locationResultPolyPoint.X,
-            Y = locationResultPolyPoint.Y,
-          });
-        }
-        objectDetectionEvent.Locations.Add(poly);
-      }
-
-      OnBeholderOccipitalEvent(objectDetectionEvent);
+        OnBeholderOccipitalEvent(objectDetectionEvent);
+      });
     }
 
     /// <summary>

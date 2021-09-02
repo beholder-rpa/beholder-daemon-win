@@ -2,20 +2,20 @@
 {
   using System.Text.Json.Serialization;
 
-  public class PointerImage
+  public record PointerImage
   {
     [JsonPropertyName("key")]
     public string Key
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("image")]
     public string Image
     {
       get;
-      set;
+      init;
     }
   }
 }

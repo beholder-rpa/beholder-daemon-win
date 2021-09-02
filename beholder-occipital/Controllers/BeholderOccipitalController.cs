@@ -1,6 +1,5 @@
 ﻿namespace beholder_occipital.Controllers
 {
-  using beholder_nest;
   using beholder_nest.Attributes;
   using beholder_nest.Extensions;
   using beholder_occipital.Models;
@@ -9,6 +8,7 @@
   using System;
   using System.Text;
   using System.Text.Json;
+  using System.Threading;
   using System.Threading.Tasks;
 
   [MqttController]
@@ -17,6 +17,8 @@
     private readonly ILogger<BeholderOccipitalController> _logger;
     private readonly BeholderOccipital _occipitalLobe;
 
+    private CancellationTokenSource _cts;
+
     public BeholderOccipitalController(ILogger<BeholderOccipitalController> logger, BeholderOccipital occipitalLobe)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -24,14 +26,20 @@
     }
 
     [EventPattern("beholder/occipital/{HOSTNAME}/object_detection/detect")]
-    public Task Detect(MqttApplicationMessage message)
+    public void Detect(MqttApplicationMessage message)
     {
       var requestJson = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
       var request = JsonSerializer.Deserialize<ObjectDetectionRequest>(requestJson);
 
-      _occipitalLobe.DetectObject(request);
+      // If there's a previous request, cancel it.
+      if (_cts != null)
+        _cts.Cancel();
 
-      return Task.CompletedTask;
+      // Create a CTS for this request.
+      _cts = new CancellationTokenSource();
+
+      // Observe the screen on a seperate thread.
+      _occipitalLobe.DetectObject(request).Forget();
     }
   }
 }

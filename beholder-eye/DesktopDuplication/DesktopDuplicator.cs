@@ -211,9 +211,12 @@
         // A non-zero mouse update timestamp indicates that there is a mouse position update and optionally a shape change
         if (frameInfo.LastMouseUpdateTime == 0)
         {
-          frame.PointerPosition.Visible = _pointerInfo.Visible;
-          frame.PointerPosition.X = _pointerInfo.Position.X;
-          frame.PointerPosition.Y = _pointerInfo.Position.Y;
+          frame.PointerPosition = new PointerPosition()
+          {
+            Visible = _pointerInfo.Visible,
+            X = _pointerInfo.Position.X,
+            Y = _pointerInfo.Position.Y,
+          };
           return;
         }
 
@@ -241,9 +244,12 @@
           _pointerInfo.Visible = frameInfo.PointerPosition.Visible;
         }
 
-        frame.PointerPosition.Visible = _pointerInfo.Visible;
-        frame.PointerPosition.X = _pointerInfo.Position.X;
-        frame.PointerPosition.Y = _pointerInfo.Position.Y;
+        frame.PointerPosition = new PointerPosition()
+        {
+          Visible = _pointerInfo.Visible,
+          X = _pointerInfo.Position.X,
+          Y = _pointerInfo.Position.Y
+        };
 
         // No new shape
         if (frameInfo.PointerShapeBufferSize == 0)

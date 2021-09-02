@@ -3,7 +3,9 @@
   using beholder_nest.Cache;
   using beholder_nest.Models;
   using beholder_nest.Routing;
+  using Microsoft.Extensions.Caching.Memory;
   using Microsoft.Extensions.DependencyInjection;
+  using Microsoft.Extensions.Logging;
   using System.Collections.Generic;
   using System.Reflection;
 
@@ -23,7 +25,17 @@
         serviceInfo = new BeholderServiceInfo();
       }
 
-      services.AddSingleton<ICacheClient, CacheClient>();
+      services.AddSingleton<IMemoryCache, MemoryCache>();
+      services.AddSingleton<RedisCacheClient>();
+      services.AddSingleton<MemoryCacheClient>();
+      services.AddSingleton<ICacheClient, AggregateCacheClient>(sp =>
+      {
+        return new AggregateCacheClient(
+          sp.GetRequiredService<MemoryCacheClient>(),
+          sp.GetRequiredService<RedisCacheClient>(),
+          sp.GetRequiredService<ILogger<AggregateCacheClient>>()
+        );
+      });
       services.AddSingleton(c => MqttRouteTableFactory.Create(assemblies, serviceInfo));
       services.AddSingleton<ITypeActivatorCache>(new TypeActivatorCache());
       services.AddSingleton<MqttApplicationMessageRouter>();

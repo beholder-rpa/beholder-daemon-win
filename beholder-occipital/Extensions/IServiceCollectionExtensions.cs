@@ -8,8 +8,8 @@
   {
     public static IServiceCollection AddOccipital(this IServiceCollection services)
     {
-      services.AddTransient<IMatchMaskFactory, MatchMaskFactory>();
-      services.AddTransient<IMatchProcessor, SiftFlannMatchProcessor>();
+      services.AddSingleton<IMatchMaskFactory, MatchMaskFactory>();
+      services.AddSingleton<IMatchProcessor, SiftFlannMatchProcessor>();
 
       services.AddSingleton<BeholderOccipital>();
       services.AddSingleton<IObserver<BeholderOccipitalEvent>, BeholderOccipitalObserver>();

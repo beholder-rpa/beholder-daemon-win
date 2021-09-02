@@ -5,8 +5,6 @@
   /// </summary>
   public record PointerImageEvent : BeholderEyeEvent
   {
-    public string Key { get; set; }
-
     public byte[] Image { get; set; }
   }
 }

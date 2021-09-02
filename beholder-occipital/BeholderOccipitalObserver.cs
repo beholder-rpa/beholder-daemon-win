@@ -14,8 +14,6 @@
     private readonly ILogger<BeholderOccipitalObserver> _logger;
     private readonly IBeholderMqttClient _beholderClient;
 
-    private IList<ObjectPoly> _lastResponse;
-
     public BeholderOccipitalObserver(ILogger<BeholderOccipitalObserver> logger, IBeholderMqttClient beholderClient)
     {
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));

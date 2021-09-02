@@ -24,7 +24,7 @@ namespace beholder_daemon_win
     private readonly IObserver<BeholderPsionixEvent> _psionixObserver;
 
     private readonly BeholderEye _eye;
-    private readonly IObserver<BeholderEyeEvent> _eyeObserver;
+    private readonly BeholderEyeObserver _eyeObserver;
     private readonly Lazy<BeholderServiceInfo> _serviceInfo = new Lazy<BeholderServiceInfo>(() =>
     {
       return new BeholderServiceInfo
@@ -43,7 +43,7 @@ namespace beholder_daemon_win
       BeholderPsionix psionix,
       IObserver<BeholderPsionixEvent> psionixObserver,
       BeholderEye eye,
-      IObserver<BeholderEyeEvent> eyeObserver,
+      BeholderEyeObserver eyeObserver,
       ILogger<BeholderDaemonWorker> logger
     )
     {
@@ -75,7 +75,10 @@ namespace beholder_daemon_win
       {
         // Perform updates on 
         await _mqttClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, "beholder/ctaf", _serviceInfo.Value, cancellationToken: stoppingToken);
-        _logger.LogInformation("Daemon Pulsed");
+
+        _eyeObserver.Pulse();
+
+        //_logger.LogInformation("Daemon Pulsed");
         await Task.Delay(5000, stoppingToken);
       }
     }

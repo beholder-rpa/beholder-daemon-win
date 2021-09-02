@@ -8,18 +8,19 @@
   using System.Text.Json;
   using System.Threading.Tasks;
 
-  public class CacheClient : ICacheClient
+  public class RedisCacheClient : ICacheClient
   {
-    private readonly ConfigurationOptions configuration = null;
-    private readonly Lazy<IConnectionMultiplexer> _connection = null;
-    private readonly ILogger<CacheClient> _logger;
+    private readonly ConfigurationOptions configuration;
+    private readonly Lazy<IConnectionMultiplexer> _connection;
+    private readonly ILogger<RedisCacheClient> _logger;
 
-    public CacheClient(IOptions<BeholderOptions> options, ILogger<CacheClient> logger)
+    public RedisCacheClient(IOptions<BeholderOptions> options, ILogger<RedisCacheClient> logger)
     {
       if (options == null || options.Value == null)
       {
         throw new ArgumentNullException(nameof(options));
       }
+
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
       var connectionOptions = options.Value;
