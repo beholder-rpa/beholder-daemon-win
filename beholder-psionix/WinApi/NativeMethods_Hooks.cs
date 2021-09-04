@@ -4,7 +4,7 @@
   using System.Runtime.InteropServices;
   using System.Text;
 
-  internal static partial class NativeMethods
+  public static partial class NativeMethods
   {
     /// <summary>
     ///     The CallNextHookEx function passes the hook information to the next hook procedure in the current hook chain.

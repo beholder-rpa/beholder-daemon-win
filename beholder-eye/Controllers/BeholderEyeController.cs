@@ -69,8 +69,7 @@
         Status = _eye.Status
       };
 
-      await _beholderClient.MqttClient.PublishEventAsync(
-        BeholderConsts.PubSubName,
+      await _beholderClient.PublishEventAsync(
         $"beholder/eye/{{HOSTNAME}}/status",
         beholderEyeInfo
       );

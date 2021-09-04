@@ -6,15 +6,6 @@
   public interface ICloudEvent
   {
     /// <summary>
-    /// Event data specific to the event type. 
-    /// </summary>
-    object Data
-    {
-      get;
-      set;
-    }
-
-    /// <summary>
     /// Content type of data value.
     /// </summary>
     /// <example>
@@ -23,7 +14,6 @@
     string DataContentType
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -32,7 +22,6 @@
     string DataSchema
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -44,7 +33,6 @@
     string Id
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -56,13 +44,11 @@
     string Source
     {
       get;
-      set;
     }
 
     string SpecVersion
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -74,7 +60,6 @@
     string Subject
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -86,7 +71,6 @@
     DateTime Time
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -98,7 +82,6 @@
     string Type
     {
       get;
-      set;
     }
 
     /// <summary>
@@ -107,7 +90,17 @@
     IDictionary<string, object> ExtensionAttributes
     {
       get;
-      set;
+    }
+  }
+
+  public interface ICloudEvent<T> : ICloudEvent
+  {
+    /// <summary>
+    /// Event data specific to the event type. 
+    /// </summary>
+    T Data
+    {
+      get;
     }
   }
 }

@@ -12,6 +12,7 @@
   using System;
   using System.Reflection;
   using System.Security.Cryptography;
+  using System.Text.Json;
 
   public class Startup
   {
@@ -36,6 +37,11 @@
         c.BaseAddress = new Uri($"https://{beholderOptions.BaseUrl}", UriKind.Absolute);
       });
 
+      services.AddSingleton(sp => new JsonSerializerOptions
+      {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+      });
+
       services.AddSingleton<BeholderServiceInfo>();
       services.AddHostedService<BeholderDaemonWorker>();
 
@@ -57,7 +63,7 @@
 
       // Psionix
       services.AddSingleton<BeholderPsionix>();
-      services.AddSingleton<IObserver<BeholderPsionixEvent>, BeholderPsionixObserver>();
+      services.AddSingleton<BeholderPsionixObserver>();
 
       // Occipital
       services.AddOccipital();

@@ -117,10 +117,8 @@
 
       // Notify any subscribers that the region is available
       await _beholderClient
-        .MqttClient
         .PublishEventAsync(
-          BeholderConsts.PubSubName,
-          $"beholder/eye/{Environment.MachineName}/region/{captureEvent.Name}",
+          $"beholder/eye/{{HOSTNAME}}/region/{captureEvent.Name}",
           captureInfo
         );
     }
@@ -128,10 +126,8 @@
     private async Task HandlePointerPositionChanged(PointerPosition pointerPosition)
     {
       await _beholderClient
-        .MqttClient
         .PublishEventAsync(
-          BeholderConsts.PubSubName,
-          $"beholder/eye/{Environment.MachineName}/pointer_position",
+          $"beholder/eye/{{HOSTNAME}}/pointer_position",
           pointerPosition
         );
     }
@@ -153,10 +149,8 @@
       };
 
       await _beholderClient
-        .MqttClient
         .PublishEventAsync(
-          BeholderConsts.PubSubName,
-          $"beholder/eye/{Environment.MachineName}/pointer_image",
+          $"beholder/eye/{{HOSTNAME}}/pointer_image",
           pointerImage
         );
     }

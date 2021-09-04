@@ -35,7 +35,7 @@
 
       using var cts = new CancellationTokenSource();
 
-      var beholderEye = new BeholderEye(_mockLogger.Object, sha256);
+      var beholderEye = new BeholderEye(_mockLogger.Object);
       await beholderEye.ObserveWithUnwaveringSight(new ObservationRequest()
       {
 

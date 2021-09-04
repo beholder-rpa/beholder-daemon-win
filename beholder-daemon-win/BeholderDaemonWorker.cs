@@ -3,7 +3,6 @@ namespace beholder_daemon_win
   using beholder_eye;
   using beholder_nest;
   using beholder_nest.Models;
-  using beholder_nest.Mqtt;
   using beholder_occipital;
   using beholder_psionix;
   using Microsoft.Extensions.Hosting;
@@ -16,23 +15,16 @@ namespace beholder_daemon_win
   {
     private readonly ILogger<BeholderDaemonWorker> _logger;
     private readonly IBeholderMqttClient _mqttClient;
+    private readonly BeholderServiceInfo _serviceInfo;
 
     private readonly BeholderOccipital _occipital;
     private readonly IObserver<BeholderOccipitalEvent> _occipitalObserver;
 
     private readonly BeholderPsionix _psionix;
-    private readonly IObserver<BeholderPsionixEvent> _psionixObserver;
+    private readonly BeholderPsionixObserver _psionixObserver;
 
     private readonly BeholderEye _eye;
     private readonly BeholderEyeObserver _eyeObserver;
-    private readonly Lazy<BeholderServiceInfo> _serviceInfo = new Lazy<BeholderServiceInfo>(() =>
-    {
-      return new BeholderServiceInfo
-      {
-        ServiceName = "daemon",
-        Version = "v1"
-      };
-    });
 
     private Task _psionixObserveTask;
 
@@ -41,9 +33,10 @@ namespace beholder_daemon_win
       BeholderOccipital occipital,
       IObserver<BeholderOccipitalEvent> occipitalObserver,
       BeholderPsionix psionix,
-      IObserver<BeholderPsionixEvent> psionixObserver,
+      BeholderPsionixObserver psionixObserver,
       BeholderEye eye,
       BeholderEyeObserver eyeObserver,
+      BeholderServiceInfo beholderServiceInfo,
       ILogger<BeholderDaemonWorker> logger
     )
     {
@@ -58,6 +51,7 @@ namespace beholder_daemon_win
       _eye = eye ?? throw new ArgumentNullException(nameof(eye));
       _eyeObserver = eyeObserver ?? throw new ArgumentNullException(nameof(eyeObserver));
 
+      _serviceInfo = beholderServiceInfo ?? throw new ArgumentNullException(nameof(beholderServiceInfo));
       _logger = logger ?? throw new ArgumentNullException(nameof(logger)); ;
     }
 
@@ -74,9 +68,10 @@ namespace beholder_daemon_win
       while (!stoppingToken.IsCancellationRequested)
       {
         // Perform updates on 
-        await _mqttClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, "beholder/ctaf", _serviceInfo.Value, cancellationToken: stoppingToken);
+        await _mqttClient.PublishEventAsync("beholder/ctaf", _serviceInfo, cancellationToken: stoppingToken);
 
         _eyeObserver.Pulse();
+        _psionixObserver.Pulse();
 
         //_logger.LogInformation("Daemon Pulsed");
         await Task.Delay(5000, stoppingToken);

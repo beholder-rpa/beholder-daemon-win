@@ -2,7 +2,6 @@
 {
   using beholder_nest;
   using beholder_nest.Attributes;
-  using beholder_nest.Mqtt;
   using beholder_psionix.Hotkeys;
   using Microsoft.Extensions.Logging;
   using MQTTnet;
@@ -73,7 +72,7 @@
         response.Add(hotKey.ToString());
       }
 
-      await _beholderClient.MqttClient.PublishEventAsync(BeholderConsts.PubSubName, "beholder/psionix/{HOSTNAME}/hotkeys/registered_hotkeys", response);
+      await _beholderClient.PublishEventAsync($"beholder/psionix/{{HOSTNAME}}/hotkeys/registered_hotkeys", response);
     }
   }
 }

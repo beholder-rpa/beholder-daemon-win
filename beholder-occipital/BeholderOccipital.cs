@@ -6,14 +6,12 @@
   using Microsoft.Extensions.Logging;
   using OpenCvSharp;
   using SixLabors.ImageSharp;
-  using SixLabors.ImageSharp.Formats;
   using SixLabors.ImageSharp.PixelFormats;
   using SixLabors.ImageSharp.Processing;
   using System;
   using System.Collections.Concurrent;
   using System.Collections.Generic;
   using System.IO;
-  using System.Linq;
   using System.Threading;
   using System.Threading.Tasks;
   using Point = OpenCvSharp.Point;
@@ -42,7 +40,7 @@
       return _observers.GetOrAdd(observer, new BeholderOccipitalEventUnsubscriber(this, observer));
     }
 
-    public async Task DetectObject(ObjectDetectionRequest request, CancellationToken cancellationToken = default)
+    public Task DetectObject(ObjectDetectionRequest request, CancellationToken cancellationToken = default)
     {
       if (string.IsNullOrWhiteSpace(request.QueryImagePrefrontalKey))
       {
@@ -56,7 +54,7 @@
 
       _logger.LogTrace($"Performing Object Detection using {request.QueryImagePrefrontalKey}, {request.TargetImagePrefrontalKey}");
 
-      await Task.Run(async () =>
+      return Task.Run(async () =>
       {
         var queryImageBytes = await _cacheClient.Base64ByteArrayGet(request.QueryImagePrefrontalKey);
         if (queryImageBytes == default)
@@ -214,28 +212,31 @@
           await _cacheClient.Base64ByteArraySet(request.OutputImagePrefrontalKey, outImageBytes);
         }
 
-        // Create and return the result
-        var objectDetectionEvent = new ObjectDetectionEvent()
+        if (!cancellationToken.IsCancellationRequested)
         {
-          QueryImagePrefrontalKey = request.QueryImagePrefrontalKey
-        };
-
-        foreach (var locationsResultPoly in locationsResult)
-        {
-          var poly = new ObjectPoly();
-          foreach (var locationResultPolyPoint in locationsResultPoly)
+          // Create and return the result
+          var objectDetectionEvent = new ObjectDetectionEvent()
           {
-            poly.Points.Add(new Models.Point()
-            {
-              X = locationResultPolyPoint.X,
-              Y = locationResultPolyPoint.Y,
-            });
-          }
-          objectDetectionEvent.Locations.Add(poly);
-        }
+            QueryImagePrefrontalKey = request.QueryImagePrefrontalKey
+          };
 
-        OnBeholderOccipitalEvent(objectDetectionEvent);
-      });
+          foreach (var locationsResultPoly in locationsResult)
+          {
+            var poly = new ObjectPoly();
+            foreach (var locationResultPolyPoint in locationsResultPoly)
+            {
+              poly.Points.Add(new Models.Point()
+              {
+                X = locationResultPolyPoint.X,
+                Y = locationResultPolyPoint.Y,
+              });
+            }
+            objectDetectionEvent.Locations.Add(poly);
+          }
+
+          OnBeholderOccipitalEvent(objectDetectionEvent);
+        }
+      }, cancellationToken);
     }
 
     /// <summary>

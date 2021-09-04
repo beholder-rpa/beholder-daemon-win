@@ -12,6 +12,8 @@
       HostName = Dns.GetHostName();
       IpAddresses = string.Join(", ", Dns.GetHostAddresses(Dns.GetHostName()).Select(ip => ip.ToString()));
       OS = Environment.OSVersion.ToString();
+      ServiceName = "daemon";
+      Version = "v1";
     }
 
     [JsonPropertyName("hostName")]

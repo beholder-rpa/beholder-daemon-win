@@ -1,13 +1,11 @@
 ﻿namespace beholder_eye
 {
-  using beholder_nest.Extensions;
   using Microsoft.Extensions.Logging;
   using System;
   using System.Collections.Concurrent;
   using System.Collections.Generic;
   using System.Globalization;
   using System.Linq;
-  using System.Security.Cryptography;
   using System.Threading;
   using System.Threading.Tasks;
 

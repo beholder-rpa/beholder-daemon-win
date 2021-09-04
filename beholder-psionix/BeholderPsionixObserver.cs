@@ -2,8 +2,8 @@
 {
   using beholder_nest;
   using beholder_nest.Extensions;
-  using beholder_nest.Mqtt;
   using beholder_psionix.Hotkeys;
+  using beholder_psionix.Models;
   using Microsoft.Extensions.Logging;
   using System;
   using System.Text;
@@ -52,11 +52,21 @@
       }
     }
 
+    public void Pulse()
+    {
+      var sysInfo = new SysInfo();
+
+      _beholderClient
+         .PublishEventAsync(
+           $"beholder/psionix/{{HOSTNAME}}/system_information",
+           sysInfo
+         ).Forget();
+    }
+
     private async Task HandleHotKey(HotKey hotKey)
     {
       var hotKeyBase64 = Convert.ToBase64String(Encoding.ASCII.GetBytes(hotKey.ToString()));
-      await _beholderClient.MqttClient.PublishEventAsync(
-        BeholderConsts.PubSubName,
+      await _beholderClient.PublishEventAsync(
         $"beholder/psionix/{{HOSTNAME}}/hotkeys/pressed/{hotKeyBase64}",
         hotKey.ToString()
       );
@@ -65,8 +75,7 @@
 
     private async Task HandleActiveProcessChanged(ProcessInfo processInfo)
     {
-      await _beholderClient.MqttClient.PublishEventAsync(
-        BeholderConsts.PubSubName,
+      await _beholderClient.PublishEventAsync(
         $"beholder/psionix/{{HOSTNAME}}/active_process_changed",
         processInfo
       );
@@ -74,8 +83,7 @@
 
     private async Task HandleProcessChanged(ProcessInfo processInfo)
     {
-      await _beholderClient.MqttClient.PublishEventAsync(
-        BeholderConsts.PubSubName,
+      await _beholderClient.PublishEventAsync(
         $"beholder/psionix/{{HOSTNAME}}/process_changed/{processInfo.ProcessName}",
         processInfo
       );
@@ -85,9 +93,7 @@
     private async Task HandlePointerPositionChanged(PointerPosition pointerPosition)
     {
       await _beholderClient
-        .MqttClient
         .PublishEventAsync(
-          BeholderConsts.PubSubName,
           $"beholder/psionix/{{HOSTNAME}}/pointer_position",
           pointerPosition
         );

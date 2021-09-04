@@ -45,8 +45,7 @@
 
     private async Task HandleObjectDetection(string queryImageKey, IList<ObjectPoly> objectLocations)
     {
-      await _beholderClient.MqttClient.PublishEventAsync(
-        BeholderConsts.PubSubName,
+      await _beholderClient.PublishEventAsync(
         $"beholder/occipital/{{HOSTNAME}}/detected_objects/{queryImageKey}",
         objectLocations
       );

@@ -3,7 +3,7 @@
   using System;
   using System.Runtime.InteropServices;
 
-  internal static partial class NativeMethods
+  public static partial class NativeMethods
   {
     [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
     public static extern IntPtr GetForegroundWindow();
@@ -13,7 +13,7 @@
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll", SetLastError = true)]
-    static extern bool BringWindowToTop(IntPtr hWnd);
+    public static extern bool BringWindowToTop(IntPtr hWnd);
 
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, ShowWindowCommands nCmdShow);
@@ -54,6 +54,8 @@
     /// <see>See MSDN documentation for further information.</see>
     [DllImport("user32.dll")]
     public static extern bool GetCursorPos(out Point lpPoint);
+
+    
 
     public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 

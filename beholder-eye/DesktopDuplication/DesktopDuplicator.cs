@@ -59,7 +59,10 @@
       while (token.IsCancellationRequested == false)
       {
         var desktopFrame = new DesktopFrame();
-        UpdateFrame(duplicator, desktopFrame);
+        if (!UpdateFrame(duplicator, desktopFrame))
+        {
+          yield return null;
+        }
 
         if (token.IsCancellationRequested == false)
         {
@@ -76,8 +79,9 @@
     /// <summary>
     /// Updates the specified frame with the next retrieved frame.
     /// </summary>
-    private void UpdateFrame(DesktopDuplicatorInternal ddupe, DesktopFrame frame)
+    private bool UpdateFrame(DesktopDuplicatorInternal ddupe, DesktopFrame frame)
     {
+      var result = false;
       // Try to get the latest frame;
       if (ddupe.TryRetrieveFrame(out var frameInfo))
       {
@@ -86,12 +90,15 @@
           ddupe.RetrieveFrameMetadata(frame, frameInfo);
           ddupe.RetrieveCursorMetadata(frame, frameInfo);
           ddupe.ProcessFrame(frame);
+          result = true;
         }
         finally
         {
-          ddupe.ReleaseFrame(_logger);
+          result = result && ddupe.ReleaseFrame(_logger);
         }
       }
+
+      return result;
     }
 
     /// <summary>
@@ -316,11 +323,12 @@
         frame.IsDesktopImageBufferEmpty = bufferSpan.Trim((byte)0x00).IsEmpty;
       }
 
-      public void ReleaseFrame(ILogger logger)
+      public bool ReleaseFrame(ILogger logger)
       {
         try
         {
           _outputDuplication.ReleaseFrame();
+          return true;
         }
         catch (SharpGenException ex)
         {
@@ -328,6 +336,7 @@
           {
             logger.LogWarning($"Failed to release frame: {ex.Descriptor.Description}");
           }
+          return false;
         }
       }
 
