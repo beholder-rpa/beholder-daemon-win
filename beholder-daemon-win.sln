@@ -32,7 +32,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "beholder-psionix-tests", "b
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "occipital", "occipital", "{94144C1E-4530-4D9D-AB86-1FAB250538AF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "beholder-occipital", "beholder-occipital\beholder-occipital.csproj", "{46100BAC-64B9-4447-AE25-AB9C0479A76F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "beholder-occipital", "beholder-occipital\beholder-occipital.csproj", "{46100BAC-64B9-4447-AE25-AB9C0479A76F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "beholder-occipital-tests", "beholder-occipital-tests\beholder-occipital-tests.csproj", "{FA160EAE-1B79-4358-8F17-D3319B0E1A06}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,6 +74,10 @@ Global
 		{46100BAC-64B9-4447-AE25-AB9C0479A76F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{46100BAC-64B9-4447-AE25-AB9C0479A76F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{46100BAC-64B9-4447-AE25-AB9C0479A76F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA160EAE-1B79-4358-8F17-D3319B0E1A06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA160EAE-1B79-4358-8F17-D3319B0E1A06}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA160EAE-1B79-4358-8F17-D3319B0E1A06}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA160EAE-1B79-4358-8F17-D3319B0E1A06}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -88,6 +94,7 @@ Global
 		{8C153DD0-233E-470B-A3A0-03FE7C26A173} = {6ADA4B6A-C30C-4832-9C43-2C70E0EF6F32}
 		{94144C1E-4530-4D9D-AB86-1FAB250538AF} = {E46F4B21-FF15-465C-8504-D1F2F90702CB}
 		{46100BAC-64B9-4447-AE25-AB9C0479A76F} = {94144C1E-4530-4D9D-AB86-1FAB250538AF}
+		{FA160EAE-1B79-4358-8F17-D3319B0E1A06} = {94144C1E-4530-4D9D-AB86-1FAB250538AF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {93E34A47-A175-4E4C-86F4-9CF058FC6DD3}

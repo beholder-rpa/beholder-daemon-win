@@ -106,6 +106,8 @@
     /// </summary>
     private sealed class DesktopDuplicatorInternal : IDisposable
     {
+      private readonly ILogger _logger;
+
       private ID3D11Device _d3dDevice;
       private ID3D11DeviceContext _immediateContext;
       private RawRect _desktopRect;
@@ -116,8 +118,9 @@
       private int _outputDeviceIndex;
       private readonly PointerInfo _pointerInfo = new PointerInfo();
 
-      private DesktopDuplicatorInternal()
+      private DesktopDuplicatorInternal(ILogger logger)
       {
+        _logger = logger;
       }
 
       public bool IsDisposed
@@ -152,6 +155,7 @@
               && ex.Descriptor.NativeApiCode != "DXGI_ERROR_WAIT_TIMEOUT"
               && ex.Descriptor.Description != "The timeout value has elapsed and the resource is not yet available.\r\n")
           {
+            _logger.LogError(ex, $"Failed to acquire next frame - { ex.Descriptor.NativeApiCode}");
             throw new DesktopDuplicationException($"Failed to acquire next frame - {ex.Descriptor.NativeApiCode}");
           }
         }
@@ -390,7 +394,7 @@
 
       public static DesktopDuplicatorInternal CreateDesktopDuplicator(ILogger logger, int adapterIndex, int outputDeviceIndex)
       {
-        var dd = new DesktopDuplicatorInternal
+        var dd = new DesktopDuplicatorInternal(logger)
         {
           _outputDeviceIndex = outputDeviceIndex
         };

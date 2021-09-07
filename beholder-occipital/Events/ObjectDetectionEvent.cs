@@ -21,5 +21,11 @@
       get;
       init;
     }
+
+    public ObjectDetectionTiming Timing
+    {
+      get;
+      init;
+    }
   }
 }

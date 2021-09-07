@@ -1,6 +1,5 @@
 ﻿namespace beholder_nest.Routing
 {
-  using beholder_nest.Mqtt;
   using MQTTnet;
   using System.Collections.Generic;
   using System.Reflection;

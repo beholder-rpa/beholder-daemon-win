@@ -1,4 +1,4 @@
-﻿namespace beholder_nest.Mqtt
+﻿namespace beholder_nest
 {
   using MQTTnet;
   using System;

@@ -9,8 +9,10 @@
 
   public record SysInfo
   {
-    public SysInfo()
+    public SysInfo(string hostName)
     {
+      HostName = hostName;
+
       var cursorSize = SystemInformation.CursorSize;
       CursorSize = new Size()
       {
@@ -82,6 +84,13 @@
 
     [JsonPropertyName("doubleClickTime")]
     public int DoubleClickTime
+    {
+      get;
+      init;
+    }
+
+    [JsonPropertyName("hostName")]
+    public string HostName
     {
       get;
       init;

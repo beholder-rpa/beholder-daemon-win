@@ -5,13 +5,11 @@
   using beholder_occipital.ObjectDetection;
   using Microsoft.Extensions.Logging;
   using OpenCvSharp;
-  using SixLabors.ImageSharp;
-  using SixLabors.ImageSharp.PixelFormats;
-  using SixLabors.ImageSharp.Processing;
   using System;
   using System.Collections.Concurrent;
   using System.Collections.Generic;
-  using System.IO;
+  using System.Diagnostics;
+  using System.Linq;
   using System.Threading;
   using System.Threading.Tasks;
   using Point = OpenCvSharp.Point;
@@ -40,6 +38,13 @@
       return _observers.GetOrAdd(observer, new BeholderOccipitalEventUnsubscriber(this, observer));
     }
 
+    /// <summary>
+    /// For the given Object Detection Request, determines if within the target image there exists one or more query images using feature detection.
+    /// For each detected object, subscribed observers will be notified of the detected objects.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public Task DetectObject(ObjectDetectionRequest request, CancellationToken cancellationToken = default)
     {
       if (string.IsNullOrWhiteSpace(request.QueryImagePrefrontalKey))
@@ -69,44 +74,13 @@
           return;
         }
 
-        // If image pre-processors are specified, run them
-        foreach (var imagePreProcessor in request.ImagePreProcessors)
-        {
-          switch (imagePreProcessor.Kind)
-          {
-            case ProcessorKind.Scale:
-              {
-                byte[] fnResize(byte[] img)
-                {
-                  if (!imagePreProcessor.ScaleFactor.HasValue)
-                  {
-                    return img;
-                  }
+        var timing = new ObjectDetectionTiming();
+        var startTime = Stopwatch.StartNew();
 
-                  using var ms = new MemoryStream();
-                  using var image = Image.Load<Rgba32>(img);
-
-                  var size = new SixLabors.ImageSharp.Size()
-                  {
-                    Width = (int)(image.Width * imagePreProcessor.ScaleFactor.Value),
-                    Height = (int)(image.Height * imagePreProcessor.ScaleFactor.Value),
-                  };
-
-                  image.Mutate(i => i.Resize(size));
-                  image.SaveAsPng(ms);
-
-                  return ms.ToArray();
-                }
-
-                queryImageBytes = fnResize(queryImageBytes);
-                targetImageBytes = fnResize(queryImageBytes);
-              }
-              break;
-          }
-        }
-
-        using var queryImage = Cv2.ImDecode(queryImageBytes, ImreadModes.Color);
-        using var trainImage = Cv2.ImDecode(targetImageBytes, ImreadModes.Color);
+        var currentTime = Stopwatch.StartNew();
+        // Decode the images
+        var queryImage = Cv2.ImDecode(queryImageBytes, ImreadModes.Color);
+        var trainImage = Cv2.ImDecode(targetImageBytes, ImreadModes.Color);
 
         if (queryImage.Empty())
         {
@@ -117,7 +91,36 @@
         {
           throw new InvalidOperationException("The train image is empty.");
         }
+        currentTime.Stop();
+        timing.DecodeTime = currentTime.ElapsedMilliseconds;
 
+        currentTime.Restart();
+        // If image pre-processors are specified, run them
+        foreach (var imagePreProcessor in request.ImagePreProcessors)
+        {
+          switch (imagePreProcessor.Kind)
+          {
+            case ProcessorKind.Scale:
+              {
+                var newQueryImageWidth = queryImage.Width * imagePreProcessor.ScaleFactor.Value;
+                var newQueryImageHeight = queryImage.Height * imagePreProcessor.ScaleFactor.Value;
+
+                queryImage = queryImage.Resize(new Size(newQueryImageWidth, newQueryImageHeight));
+
+                var newTrainImageWidth = trainImage.Width * imagePreProcessor.ScaleFactor.Value;
+                var newTrainImageHeight = trainImage.Height * imagePreProcessor.ScaleFactor.Value;
+
+                trainImage = trainImage.Resize(new Size(newTrainImageWidth, newTrainImageHeight));
+                break;
+              }
+          }
+        }
+
+        currentTime.Stop();
+        timing.PreProcessingTime = currentTime.ElapsedMilliseconds;
+
+        // Begin detection
+        currentTime.Restart();
         var locationsResult = new List<IEnumerable<Point>>();
 
         DMatch[][] knn_matches = _matchProcessor.ProcessAndObtainMatches(queryImage, trainImage, out KeyPoint[] queryKeyPoints, out KeyPoint[] trainKeyPoints);
@@ -201,42 +204,91 @@
           }
         }
 
-        // If an output image prefrontal key is specified, generate an output image and store it in prefrontal state
-        if (!string.IsNullOrWhiteSpace(request.OutputImagePrefrontalKey))
-        {
-          byte[] maskBytes = new byte[mask.Rows * mask.Cols];
-          Cv2.Polylines(trainImage, locationsResult, true, new Scalar(255, 0, 0), 3, LineTypes.AntiAlias);
-          using var outImg = new Mat();
-          Cv2.DrawMatches(queryImage, queryKeyPoints, trainImage, trainKeyPoints, allGoodMatches, outImg, new Scalar(0, 255, 0), flags: DrawMatchesFlags.NotDrawSinglePoints);
-          var outImageBytes = outImg.ImEncode();
-          await _cacheClient.Base64ByteArraySet(request.OutputImagePrefrontalKey, outImageBytes);
-        }
+        currentTime.Stop();
+        timing.ObjectDetectionTime = currentTime.ElapsedMilliseconds;
 
-        if (!cancellationToken.IsCancellationRequested)
-        {
-          // Create and return the result
-          var objectDetectionEvent = new ObjectDetectionEvent()
-          {
-            QueryImagePrefrontalKey = request.QueryImagePrefrontalKey
-          };
+        startTime.Stop();
+        timing.OverallTime = startTime.ElapsedMilliseconds;
 
-          foreach (var locationsResultPoly in locationsResult)
+        await PostProcessResults(
+          request,
+          locationsResult,
+          queryImage,
+          trainImage,
+          mask,
+          queryKeyPoints,
+          trainKeyPoints,
+          allGoodMatches,
+          timing,
+          cancellationToken
+        );
+
+      }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Performs image post-processing
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellationToken"></param>
+    private async Task PostProcessResults(
+      ObjectDetectionRequest request,
+      IList<IEnumerable<Point>> locationsResult,
+      Mat queryImage,
+      Mat trainImage,
+      Mat mask,
+      KeyPoint[] queryKeyPoints,
+      KeyPoint[] trainKeyPoints,
+      IList<DMatch> allGoodMatches,
+      ObjectDetectionTiming timing,
+      CancellationToken cancellationToken = default)
+    {
+      // If an output image prefrontal key is specified, generate an output image and store it in the cache.
+      if (!string.IsNullOrWhiteSpace(request.OutputImagePrefrontalKey) && !cancellationToken.IsCancellationRequested)
+      {
+        byte[] maskBytes = new byte[mask.Rows * mask.Cols];
+        Cv2.Polylines(trainImage, locationsResult, true, new Scalar(255, 0, 0), 3, LineTypes.AntiAlias);
+        using var outImg = new Mat();
+        Cv2.DrawMatches(queryImage, queryKeyPoints, trainImage, trainKeyPoints, allGoodMatches, outImg, new Scalar(0, 255, 0), flags: DrawMatchesFlags.NotDrawSinglePoints);
+        var outImageBytes = outImg.ImEncode();
+        await _cacheClient.Base64ByteArraySet(request.OutputImagePrefrontalKey, outImageBytes);
+      }
+
+
+      // Finally, create and notify subscribers of the result
+      if (!cancellationToken.IsCancellationRequested)
+      {
+        var objectDetectionEvent = new ObjectDetectionEvent()
+        {
+          QueryImagePrefrontalKey = request.QueryImagePrefrontalKey,
+          Timing = timing,
+        };
+
+        for (var i = 0; i < locationsResult.Count; i++)
+        {
+          var locationsResultPoly = locationsResult[i];
+
+          // Filter out detections that have negative points
+          if (locationsResultPoly.Any(poly => poly.X < 0 || poly.Y < 0))
           {
-            var poly = new ObjectPoly();
-            foreach (var locationResultPolyPoint in locationsResultPoly)
-            {
-              poly.Points.Add(new Models.Point()
-              {
-                X = locationResultPolyPoint.X,
-                Y = locationResultPolyPoint.Y,
-              });
-            }
-            objectDetectionEvent.Locations.Add(poly);
+            continue;
           }
 
-          OnBeholderOccipitalEvent(objectDetectionEvent);
+          var poly = new ObjectPoly();
+          foreach (var locationResultPolyPoint in locationsResultPoly)
+          {
+            poly.Points.Add(new Models.Point()
+            {
+              X = locationResultPolyPoint.X,
+              Y = locationResultPolyPoint.Y,
+            });
+          }
+
+          objectDetectionEvent.Locations.Add(poly);
         }
-      }, cancellationToken);
+
+        OnBeholderOccipitalEvent(objectDetectionEvent);
+      }
     }
 
     /// <summary>

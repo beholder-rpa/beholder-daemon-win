@@ -11,13 +11,25 @@
   [MqttController]
   public class MouseController
   {
+    private readonly BeholderPsionix _psionix;
     private readonly ILogger<MouseController> _logger;
     private readonly IBeholderMqttClient _beholderClient;
 
-    public MouseController(ILogger<MouseController> logger, IBeholderMqttClient beholderClient)
+    public MouseController(BeholderPsionix psionix, ILogger<MouseController> logger, IBeholderMqttClient beholderClient)
     {
+      _psionix = psionix ?? throw new ArgumentNullException(nameof(psionix));
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
       _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
+    }
+
+    [EventPattern("beholder/psionix/{HOSTNAME}/mouse/publish_pointer_position")]
+    public async Task PublishPointerPosition(CloudEvent message)
+    {
+      await _beholderClient
+        .PublishEventAsync(
+          $"beholder/psionix/{{HOSTNAME}}/pointer_position",
+          _psionix.CurrentPointerPosition
+        );
     }
 
     [EventPattern("beholder/psionix/{HOSTNAME}/mouse/set_speed")]

@@ -6,46 +6,58 @@
 
   public record ImageSettings
   {
+    public ImageSettings()
+    {
+      Kind = ImageCaptureKind.Continuous;
+    }
+
+    [JsonPropertyName("kind")]
+    public ImageCaptureKind Kind
+    {
+      get;
+      init;
+    }
+
     [JsonPropertyName("x")]
     public int X
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("y")]
     public int Y
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("width")]
     public int Width
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("height")]
     public int Height
     {
       get;
-      set;
+      init;
     }
 
     [JsonPropertyName("maxFps")]
     public double? MaxFps
     {
       get;
-      set;
+      init;
     }
 
     [JsonExtensionData]
     public IDictionary<string, JsonElement> AdditionalData
     {
       get;
-      set;
+      init;
     }
   }
 }

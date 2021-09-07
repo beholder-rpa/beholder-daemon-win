@@ -44,5 +44,15 @@
       get;
       set;
     }
+
+    /// <summary>
+    /// If specified, stores the captured target with the indicated key prefix
+    /// </summary>
+    [JsonPropertyName("targetImagePrefrontalKeyPrefix")]
+    public string TargetImagePrefrontalKeyPrefix
+    {
+      get;
+      set;
+    }
   }
 }

@@ -38,6 +38,12 @@
       set;
     }
 
+    public bool IsDisposed
+    {
+      get;
+      private set;
+    }
+
     /// <summary>
     /// Gets a value that indicates the status of the Beholder Eye
     /// </summary>
@@ -130,66 +136,6 @@
             }
           }
 
-          //// Double-check locking for a snapshot request.
-          //if (SnapshotRequest != null)
-          //{
-          //    lock (_snapshotLock)
-          //    {
-          //        if (SnapshotRequest != null)
-          //        {
-          //            if (SnapshotRequest.ScaleFactor.HasValue == false)
-          //            {
-          //                SnapshotRequest.ScaleFactor = 1.0;
-          //            }
-
-          //            if (SnapshotRequest.Format.HasValue == false)
-          //            {
-          //                SnapshotRequest.Format = SnapshotFormat.Png;
-          //            }
-
-          //            var width = (int)Math.Ceiling(desktopFrame.DesktopWidth * SnapshotRequest.ScaleFactor.Value);
-          //            var height = (int)Math.Ceiling(desktopFrame.DesktopHeight * SnapshotRequest.ScaleFactor.Value);
-
-          //            var snapshot = desktopFrame.GetSnapshot(width, height, SnapshotRequest.Format.Value);
-
-          //            var now = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-          //            var key = $"Eye_Snapshot_{now}";
-          //            switch (SnapshotRequest.Format)
-          //            {
-          //                case SnapshotFormat.Jpeg:
-          //                    key += ".jpg";
-          //                    break;
-          //                case SnapshotFormat.Png:
-          //                default:
-          //                    key += ".png";
-          //                    break;
-          //            }
-
-          //            try
-          //            {
-
-          //                var db = Redis.GetDatabase();
-          //                db.StringSet(key, snapshot, TimeSpan.FromHours(2));
-
-          //                if (SnapshotRequest.Metadata != null)
-          //                {
-          //                    var metadataKey = $"Eye_Snapshot_Metadata_{now}";
-          //                    db.StringSet(metadataKey, JsonSerializer.Serialize(SnapshotRequest.Metadata), TimeSpan.FromHours(2));
-          //                }
-
-          //                NexusConnection?.SendAsync("EyeReport", "Snapshot", new object[] { key, width, height });
-          //            }
-          //            catch (RedisException ex)
-          //            {
-          //                _logger.LogError(ex, $"Unable to store snapshot in redis. {ex.Message}");
-          //            }
-
-          //            // We've taken a snapshot, clear the request.
-          //            SnapshotRequest = null;
-          //        }
-          //    }
-          //}
-
           if (AlignRequest != null)
           {
             lock (_alignLock)
@@ -271,6 +217,13 @@
               }
             }
           }
+
+          // Remove single-frame focus regions
+          var regionsToRemove = _focusRegions.Where(f => f.Value.Kind == ImageCaptureKind.SingleFrame);
+          foreach(var regionToRemove in regionsToRemove)
+          {
+            RemoveFocusRegion(regionToRemove.Key, "SingleFrame");
+          }
         };
 
         Status = BeholderStatus.NotObserving;
@@ -287,7 +240,8 @@
     {
       if (Status == BeholderStatus.NotObserving)
       {
-        throw new InvalidOperationException("The Beholder Eye is currently not observing. Set the desired focus regions of a new ObservationRequest and invoke ObserveWithUnwaveringSight with that request.");
+        _logger.LogError("The Beholder Eye is currently not observing. Set the desired focus regions of a new ObservationRequest and invoke ObserveWithUnwaveringSight with that request.");
+        return;
       }
 
       ValidateAndUpdateFocusRegion(focusRegionName, settings);
@@ -297,16 +251,24 @@
     /// Provids a mechanism to remove focus regions while the eye is currently observing.
     /// </summary>
     /// <param name="focusRegionName"></param>
-    public void RemoveFocusRegion(string focusRegionName)
+    public void RemoveFocusRegion(string focusRegionName, string reason)
     {
       if (Status == BeholderStatus.NotObserving)
       {
-        throw new InvalidOperationException("The Beholder Eye is currently not observing. Set the desired focus regions of a new ObservationRequest and invoke ObserveWithUnwaveringSight with that request.");
+        _logger.LogError("The Beholder Eye is currently not observing. Set the desired focus regions of a new ObservationRequest and invoke ObserveWithUnwaveringSight with that request.");
+        return;
       }
 
       if (_focusRegions.ContainsKey(focusRegionName))
       {
-        _focusRegions.Remove(focusRegionName);
+        if (_focusRegions.Remove(focusRegionName))
+        {
+          OnBeholderEyeEvent(new RegionRemovedEvent()
+          {
+            RegionName = focusRegionName,
+            Reason = reason,
+          });
+        }
       }
     }
 
@@ -438,7 +400,10 @@
 
       if (settings.MaxFps.HasValue == false)
       {
-        settings.MaxFps = 0.25;
+        settings = settings with
+        {
+          MaxFps = 0.25
+        };
       }
 
       _focusRegions[focusRegionName] = settings;

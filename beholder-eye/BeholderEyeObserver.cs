@@ -70,6 +70,9 @@
         case ThumbnailImageEvent thumbnailImageEvent:
           HandleThumbnailImageObserved(thumbnailImageEvent.Key, thumbnailImageEvent.Image).Forget();
           break;
+        case RegionRemovedEvent regionRemoved:
+          HandleRegionRemoved(regionRemoved).Forget();
+          break;
         default:
           _logger.LogWarning($"Unhandled or unknown BeholderEyeEvent: {eyeEvent}");
           break;
@@ -165,13 +168,21 @@
 
     private async Task HandleAlignmentMapGenerated(IList<MatrixPixelLocation> map)
     {
-      await _beholderClient.MqttClient.PublishAsync(
-          new MqttApplicationMessageBuilder()
-              .WithTopic($"beholder/eye/{Environment.MachineName}/alignment_map")
-              .WithPayload(JsonSerializer.Serialize(map))
-              .Build(),
-          CancellationToken.None
-      );
+      await _beholderClient
+        .PublishEventAsync(
+          $"beholder/eye/{{HOSTNAME}}/alignment_map",
+          map
+        );
+    }
+
+
+    private async Task HandleRegionRemoved(RegionRemovedEvent regionRemoved)
+    {
+      await _beholderClient
+        .PublishEventAsync(
+          $"beholder/eye/{{HOSTNAME}}/removed_region/{regionRemoved.RegionName}",
+          regionRemoved
+        );
     }
   }
 }

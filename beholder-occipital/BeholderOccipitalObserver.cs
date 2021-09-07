@@ -2,7 +2,6 @@
 {
   using beholder_nest;
   using beholder_nest.Extensions;
-  using beholder_nest.Mqtt;
   using beholder_occipital.Models;
   using Microsoft.Extensions.Logging;
   using System;
@@ -35,7 +34,7 @@
       switch (occipitalEvent)
       {
         case ObjectDetectionEvent objectDetectionEvent:
-          HandleObjectDetection(objectDetectionEvent.QueryImagePrefrontalKey, objectDetectionEvent.Locations).Forget();
+          HandleObjectDetection(objectDetectionEvent.QueryImagePrefrontalKey, objectDetectionEvent.Locations, objectDetectionEvent.Timing).Forget();
           break;
         default:
           _logger.LogWarning($"Unhandled or unknown BeholderOccipitalEvent: {occipitalEvent}");
@@ -43,14 +42,14 @@
       }
     }
 
-    private async Task HandleObjectDetection(string queryImageKey, IList<ObjectPoly> objectLocations)
+    private async Task HandleObjectDetection(string queryImageKey, IList<ObjectPoly> objectLocations, ObjectDetectionTiming timing)
     {
       await _beholderClient.PublishEventAsync(
         $"beholder/occipital/{{HOSTNAME}}/detected_objects/{queryImageKey}",
         objectLocations
       );
 
-      _logger.LogInformation($"Occipital Located {objectLocations.Count} polys.");
+      _logger.LogInformation($"Occipital Located {objectLocations.Count} polys for {queryImageKey} in {TimeSpan.FromMilliseconds(timing.OverallTime):ss\\.fff} - PreProcess: {TimeSpan.FromMilliseconds(timing.PreProcessingTime):ss\\.fff} - Detection: {TimeSpan.FromMilliseconds(timing.ObjectDetectionTime):ss\\.fff}");
     }
   }
 }

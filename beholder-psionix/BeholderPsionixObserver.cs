@@ -2,6 +2,7 @@
 {
   using beholder_nest;
   using beholder_nest.Extensions;
+  using beholder_nest.Models;
   using beholder_psionix.Hotkeys;
   using beholder_psionix.Models;
   using Microsoft.Extensions.Logging;
@@ -11,11 +12,13 @@
 
   public class BeholderPsionixObserver : IObserver<BeholderPsionixEvent>
   {
+    private readonly BeholderServiceInfo _serviceInfo;
     private readonly ILogger<BeholderPsionixObserver> _logger;
     private readonly IBeholderMqttClient _beholderClient;
 
-    public BeholderPsionixObserver(ILogger<BeholderPsionixObserver> logger, IBeholderMqttClient beholderClient)
+    public BeholderPsionixObserver(BeholderServiceInfo serviceInfo, ILogger<BeholderPsionixObserver> logger, IBeholderMqttClient beholderClient)
     {
+      _serviceInfo = serviceInfo ?? throw new ArgumentNullException(nameof(serviceInfo));
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
       _beholderClient = beholderClient ?? throw new ArgumentNullException(nameof(beholderClient));
     }
@@ -54,7 +57,7 @@
 
     public void Pulse()
     {
-      var sysInfo = new SysInfo();
+      var sysInfo = new SysInfo(_serviceInfo.HostName);
 
       _beholderClient
          .PublishEventAsync(

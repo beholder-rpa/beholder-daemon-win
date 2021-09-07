@@ -16,5 +16,12 @@
       get;
       set;
     }
+
+    [JsonPropertyName("imageCacheKey")]
+    public string ImageCacheKey
+    {
+      get;
+      set;
+    }
   }
 }

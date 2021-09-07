@@ -36,8 +36,9 @@
           sp.GetRequiredService<ILogger<AggregateCacheClient>>()
         );
       });
-      services.AddSingleton(c => MqttRouteTableFactory.Create(assemblies, serviceInfo));
-      services.AddSingleton<ITypeActivatorCache>(new TypeActivatorCache());
+
+      var routeTable = MqttRouteTableFactory.Create(assemblies, services, new BeholderServiceInfo());
+      services.AddSingleton(routeTable);
       services.AddSingleton<MqttApplicationMessageRouter>();
 
       return services;

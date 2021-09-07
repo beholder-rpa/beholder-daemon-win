@@ -6,6 +6,7 @@
   using Microsoft.Extensions.Logging;
   using MQTTnet;
   using System;
+  using System.Collections.Concurrent;
   using System.Text;
   using System.Text.Json;
   using System.Threading;
@@ -17,8 +18,7 @@
     private readonly ILogger<BeholderOccipitalController> _logger;
     private readonly BeholderOccipital _occipitalLobe;
 
-    private CancellationTokenSource _cts;
-    private Task _lastTask;
+    private readonly ConcurrentDictionary<string, Task> _throttles = new ConcurrentDictionary<string, Task>();
 
     public BeholderOccipitalController(ILogger<BeholderOccipitalController> logger, BeholderOccipital occipitalLobe)
     {
@@ -32,15 +32,23 @@
       var requestJson = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
       var request = JsonSerializer.Deserialize<ObjectDetectionRequest>(requestJson);
 
-      // If there's a previous request, cancel it.
-      if (_cts != null)
-        _cts.Cancel();
+      // Rate limit 
+      if (_throttles.ContainsKey(request.QueryImagePrefrontalKey))
+      {
+        return Task.CompletedTask;
+      }
 
-      // Create a CTS for this request.
-      _cts = new CancellationTokenSource(750);
+      // perform object detection
+      var cts = new CancellationTokenSource(2000);
+      var task = _occipitalLobe.DetectObject(request, cts.Token)
+        .ContinueWith((t) =>
+          _throttles.TryRemove(request.QueryImagePrefrontalKey, out Task _)
+        );
 
-      // Observe the screen on a seperate thread.
-      return _occipitalLobe.DetectObject(request);
+      task.Forget();
+
+      _throttles.TryAdd(request.QueryImagePrefrontalKey, task);
+      return Task.CompletedTask;
     }
   }
 }

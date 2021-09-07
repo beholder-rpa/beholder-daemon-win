@@ -97,12 +97,5 @@
           CancellationToken.None
       );
     }
-
-    [EventPattern("beholder/psionix/{HOSTNAME}/ensure_foreground_window")]
-    public void EnsureForegroundWindow(MqttApplicationMessage message)
-    {
-      var targetProcessName = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
-      _psionix.EnsureForegroundWindow(targetProcessName);
-    }
   }
 }

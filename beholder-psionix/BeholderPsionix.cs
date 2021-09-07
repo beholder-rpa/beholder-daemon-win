@@ -1,6 +1,7 @@
 ﻿namespace beholder_psionix
 {
   using beholder_psionix.Hotkeys;
+  using beholder_psionix.Models;
   using Microsoft.Extensions.Logging;
   using System;
   using System.Collections.Concurrent;
@@ -24,7 +25,6 @@
     private readonly ILogger<BeholderPsionix> _logger;
 
     private ProcessInfo _activeProcess;
-    private PointerPosition _pointerPosition;
 
     public BeholderPsionix(ILogger<BeholderPsionix> logger)
     {
@@ -36,7 +36,7 @@
     public bool IsDisposed
     {
       get;
-      set;
+      private set;
     }
 
     /// <summary>
@@ -47,6 +47,11 @@
       get;
       private set;
     }
+
+    /// <summary>
+    /// Gets the current pointer position
+    /// </summary>
+    public PointerPosition CurrentPointerPosition { get; private set; }
 
     public IList<ProcessInfo> GetProcesses()
     {
@@ -177,7 +182,7 @@
       }
 
       // Observe the screen on a seperate thread.
-      return Task.Factory.StartNew(() =>
+      return Task.Factory.StartNew((Action)(() =>
       {
         Status = BeholderStatus.Observing;
         _logger.LogInformation("The indeterminable logic of the Beholder's mental acquity is now focused upon the system...");
@@ -191,17 +196,17 @@
           }
 
           var currentPointerPosition = GetPointerPosition();
-          if (currentPointerPosition != _pointerPosition)
+          if (currentPointerPosition != CurrentPointerPosition)
           {
-            _pointerPosition = currentPointerPosition;
-            OnBeholderPsionixEvent(new PointerPositionChangedEvent() { PointerPosition = _pointerPosition });
+            CurrentPointerPosition = currentPointerPosition;
+            OnBeholderPsionixEvent(new PointerPositionChangedEvent() { PointerPosition = CurrentPointerPosition });
           }
           Task.Delay(100);
         }
 
         Status = BeholderStatus.NotObserving;
         _logger.LogInformation("The Beholder's Psionix have focused its attention elsewhere.");
-      }, token, TaskCreationOptions.None, TaskScheduler.Default);
+      }), token, TaskCreationOptions.None, TaskScheduler.Default);
     }
 
     public ICollection<string> GetObservedProcesses()
@@ -296,6 +301,36 @@
       }
 
       _logger.LogInformation($"Process '{processName}' is now in the foreground.");
+    }
+
+    public void MoveWindow(MoveWindowRequest request)
+    {
+      var process = Process.GetProcesses()
+          .FirstOrDefault(p => p.ProcessName == request.ProcessName);
+
+      if (process == null)
+      {
+        _logger.LogInformation($"Process '{request.ProcessName}' is not currently running.");
+        return;
+      }
+
+      NativeMethods.MoveWindow(process.MainWindowHandle, request.TargetPosition.X, request.TargetPosition.Y, request.TargetPosition.Width, request.TargetPosition.Height, request.Repaint);
+      _logger.LogInformation($"Moved '{request.ProcessName}' to {request.TargetPosition}");
+    }
+
+    public void ShowWindow(ShowWindowRequest request)
+    {
+      var process = Process.GetProcesses()
+          .FirstOrDefault(p => p.ProcessName == request.ProcessName);
+
+      if (process == null)
+      {
+        _logger.LogInformation($"Process '{request.ProcessName}' is not currently running.");
+        return;
+      }
+
+      NativeMethods.ShowWindow(process.MainWindowHandle, request.Command);
+      _logger.LogInformation($"Made the main window associated with '{request.ProcessName}' to {request.Command}");
     }
 
     public IDisposable Subscribe(IObserver<BeholderPsionixEvent> observer)

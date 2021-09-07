@@ -55,7 +55,7 @@
       }
 
       var regionNameString = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
-      _eye.RemoveFocusRegion(regionNameString);
+      _eye.RemoveFocusRegion(regionNameString, "Requested");
 
       _logger.LogInformation($"Eye Removed Region: {regionNameString}");
       return Task.CompletedTask;
