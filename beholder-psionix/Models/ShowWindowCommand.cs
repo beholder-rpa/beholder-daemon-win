@@ -3,7 +3,7 @@
   using System.Text.Json.Serialization;
 
   [JsonConverter(typeof(JsonStringEnumConverter))]
-  public enum ShowWindowCommands
+  public enum ShowWindowCommand
   {
     /// <summary>
     /// Hides the window and activates another window.

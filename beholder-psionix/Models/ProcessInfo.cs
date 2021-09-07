@@ -39,8 +39,8 @@
       init;
     }
 
-    [JsonPropertyName("windowPlacement")]
-    public WindowStatus? WindowStatus
+    [JsonPropertyName("showCommand")]
+    public ShowWindowCommand? ShowCommand
     {
       get;
       init;

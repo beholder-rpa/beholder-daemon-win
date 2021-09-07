@@ -12,7 +12,7 @@
     }
 
     [JsonPropertyName("command")]
-    public ShowWindowCommands Command
+    public ShowWindowCommand Command
     {
       get;
       init;

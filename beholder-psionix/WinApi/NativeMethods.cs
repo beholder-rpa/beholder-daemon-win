@@ -19,7 +19,7 @@
     public static extern IntPtr FindWindow(IntPtr ZeroOnly, string lpWindowName);
 
     [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool ShowWindow(IntPtr hWnd, ShowWindowCommands nCmdShow);
+    public static extern bool ShowWindow(IntPtr hWnd, ShowWindowCommand nCmdShow);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int width, int height, bool repaint);

@@ -142,22 +142,7 @@
       }
 
       var placement = new WindowPlacement();
-      var windowStatus = WindowStatus.Hidden;
-      if (NativeMethods.GetWindowPlacement(process.MainWindowHandle, ref placement))
-      {
-        switch (placement.showCmd)
-        {
-          case 1:
-            windowStatus = WindowStatus.ShowNormal;
-            break;
-          case 2:
-            windowStatus = WindowStatus.Minimize;
-            break;
-          case 3:
-            windowStatus = WindowStatus.Maximized;
-            break;
-        }
-      }
+      NativeMethods.GetWindowPlacement(process.MainWindowHandle, ref placement);
 
       Rect position = new Rect();
       NativeMethods.GetWindowRect(process.MainWindowHandle, ref position);
@@ -169,7 +154,7 @@
         ProcessName = process.ProcessName,
         MainWindowTitle = process.MainWindowTitle,
         ProcessStatus = processStatus,
-        WindowStatus = windowStatus,
+        ShowCommand = placement.showCmd,
         WindowPosition = new WindowPosition(position),
       };
     }
@@ -295,8 +280,8 @@
       Console.WriteLine($"{currentProcess.ProcessName} - {foregroundWindowIntPtr}");
       if (foregroundWindowIntPtr != process.MainWindowHandle)
       {
-        NativeMethods.ShowWindow(process.MainWindowHandle, ShowWindowCommands.Minimize);
-        NativeMethods.ShowWindow(process.MainWindowHandle, ShowWindowCommands.Restore);
+        NativeMethods.ShowWindow(process.MainWindowHandle, ShowWindowCommand.Minimize);
+        NativeMethods.ShowWindow(process.MainWindowHandle, ShowWindowCommand.Restore);
         NativeMethods.SetForegroundWindow(process.MainWindowHandle);
       }
 
