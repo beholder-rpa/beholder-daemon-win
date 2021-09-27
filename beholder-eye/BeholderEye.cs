@@ -202,19 +202,25 @@
             }
           }
 
-          foreach (var focusRegion in _focusRegions)
-          {
-            var focusRegionName = focusRegion.Key;
-            var settings = focusRegion.Value;
+          var currentTime = DateTime.Now;
+          var expiredFocusRegions = _focusRegions
+            .Where(fr => 
+              lastRegionCaptureTimes.ContainsKey(fr.Key) == false || 
+              !fr.Value.UpdateRateMs.HasValue || 
+              currentTime.Subtract(lastRegionCaptureTimes[fr.Key]) > TimeSpan.FromMilliseconds(fr.Value.UpdateRateMs.Value)
+            );
 
-            if (lastRegionCaptureTimes.ContainsKey(focusRegionName) == false || DateTime.Now.Subtract(lastRegionCaptureTimes[focusRegionName]) > TimeSpan.FromSeconds(settings.MaxFps.Value))
+          // Iterate through the focus regions that need updating
+          foreach (var expiredFocusRegion in expiredFocusRegions)
+          {
+            var focusRegionName = expiredFocusRegion.Key;
+            var focusRegion = expiredFocusRegion.Value;
+
+            var regionResult = desktopFrame.GetRegion(focusRegion.X, focusRegion.Y, focusRegion.Width, focusRegion.Height);
+            if (regionResult.Item1 != null)
             {
-              var regionResult = desktopFrame.GetRegion(settings.X, settings.Y, settings.Width, settings.Height);
-              if (regionResult.Item1 != null)
-              {
-                OnBeholderEyeEvent(new RegionCaptureEvent() { Name = focusRegionName, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
-                lastRegionCaptureTimes.AddOrUpdate(focusRegionName, DateTime.Now, (key, oldDate) => DateTime.Now);
-              }
+              OnBeholderEyeEvent(new RegionCaptureEvent() { Name = focusRegionName, Image = regionResult.Item1, RegionRectangle = regionResult.Item2 });
+              lastRegionCaptureTimes.AddOrUpdate(focusRegionName, DateTime.Now, (key, oldDate) => DateTime.Now);
             }
           }
 
@@ -398,11 +404,11 @@
         throw new ArgumentOutOfRangeException($"Region named {focusRegionName} was of kind Image but did not specify image settings.");
       }
 
-      if (settings.MaxFps.HasValue == false)
+      if (settings.UpdateRateMs.HasValue == false)
       {
         settings = settings with
         {
-          MaxFps = 0.25
+          UpdateRateMs = 250
         };
       }
 

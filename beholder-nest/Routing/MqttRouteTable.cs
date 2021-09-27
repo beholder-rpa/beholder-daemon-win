@@ -1,10 +1,13 @@
-﻿namespace beholder_nest.Routing
+﻿#nullable enable
+
+namespace beholder_nest.Routing
 {
   using MQTTnet;
+  using System;
   using System.Collections.Generic;
   using System.Reflection;
 
-  public class MqttRouteTable : Dictionary<string, List<MethodInfo>>
+  public class MqttRouteTable : Dictionary<string, List<MethodInfo>?>
   {
     public MethodInfo[] GetTopicSubscriptions(MqttApplicationMessage message)
     {
@@ -13,7 +16,13 @@
       {
         if (message.IsTopicMatch(pattern))
         {
-          result.AddRange(this[pattern]);
+          var methods = this[pattern];
+          if (methods == null)
+          {
+            throw new InvalidOperationException($"Internal Error - {pattern} contained a null collection of methods.");
+          }
+
+          result.AddRange(methods);
         }
       }
 

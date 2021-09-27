@@ -1,4 +1,6 @@
-﻿namespace beholder_nest.Routing
+﻿#nullable enable
+
+namespace beholder_nest.Routing
 {
   using beholder_nest.Attributes;
   using beholder_nest.Models;
@@ -32,8 +34,18 @@
       var addedTypes = new List<Type>();
       foreach (var route in routeTable)
       {
+        if (route.Value == null)
+        {
+          continue;
+        }
+
         foreach (var methodInfo in route.Value)
         {
+          if (methodInfo == null || methodInfo.DeclaringType == null)
+          {
+            continue;
+          }
+
           if (!addedTypes.Contains(methodInfo.DeclaringType))
           {
             serviceCollection.AddSingleton(methodInfo.DeclaringType);
@@ -62,7 +74,7 @@
 
           if (routeTable.ContainsKey(pattern))
           {
-            routeTable[pattern].Add(callbackMethod);
+            routeTable[pattern]?.Add(callbackMethod);
           }
           else
           {

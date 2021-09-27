@@ -1,14 +1,54 @@
 ﻿namespace beholder_occipital.Models
 {
+  using beholder_nest.Attributes;
   using System.Collections.Generic;
   using System.Text.Json.Serialization;
 
-  public record ObjectDetectionRequest
+  [Discriminator(nameof(Type))]
+  public abstract record ObjectDetectionRequest
   {
     public ObjectDetectionRequest()
     {
-      ImagePreProcessors = new List<ImageProcessor>();
+      PreProcessors = new List<ImageProcessor>();
+      Type = ObjectDetectionType.SiftFlann;
+      OutputSettings = new ObjectDetectionOutputSettings();
     }
+
+    /// <summary>
+    /// Indicates the object detection type. Defaults to SiftFlann
+    /// </summary>
+    [JsonPropertyName("type")]
+    public virtual ObjectDetectionType Type
+    {
+      get;
+    }
+
+    /// <summary>
+    /// Specifies any image processors that run prior to image detection
+    /// </summary>
+    [JsonPropertyName("preProcessors")]
+    public IList<ImageProcessor> PreProcessors
+    {
+      get;
+      set;
+    }
+
+
+    /// <summary>
+    /// If specified configures settings associated with storing artifacts associated with the detection process.
+    /// </summary>
+    [JsonPropertyName("outputSettings")]
+    public ObjectDetectionOutputSettings OutputSettings
+    {
+      get;
+      set;
+    }
+  }
+
+  [DiscriminatorValue(ObjectDetectionType.SiftFlann)]
+  public record SiftFlannObjectDetectionRequest : ObjectDetectionRequest
+  {
+    public override ObjectDetectionType Type { get => ObjectDetectionType.SiftFlann; }
 
     [JsonPropertyName("queryImagePrefrontalKey")]
     public string QueryImagePrefrontalKey
@@ -24,32 +64,8 @@
       set;
     }
 
-    [JsonPropertyName("imagePreProcessors")]
-    public IList<ImageProcessor> ImagePreProcessors
-    {
-      get;
-      set;
-    }
-
     [JsonPropertyName("matchMaskSettings")]
     public MatchMaskSettings MatchMaskSettings
-    {
-      get;
-      set;
-    }
-
-    [JsonPropertyName("outputImagePrefrontalKey")]
-    public string OutputImagePrefrontalKey
-    {
-      get;
-      set;
-    }
-
-    /// <summary>
-    /// If specified, stores the captured target with the indicated key prefix
-    /// </summary>
-    [JsonPropertyName("targetImagePrefrontalKeyPrefix")]
-    public string TargetImagePrefrontalKeyPrefix
     {
       get;
       set;

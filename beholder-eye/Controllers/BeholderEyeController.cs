@@ -33,15 +33,22 @@
       // If the eye isn't currently observing, noop.
       if (_eye.Status == BeholderStatus.NotObserving)
       {
+        _logger.LogTrace($"Eye not observing, skipping focus region update");
         return Task.CompletedTask;
       }
 
       var requestJson = Encoding.UTF8.GetString(message.Payload, 0, message.Payload.Length);
       var region = JsonSerializer.Deserialize<ObservationRegion>(requestJson);
 
+      if (string.IsNullOrWhiteSpace(region.Name))
+      {
+        _logger.LogTrace($"A focus region update was requested, but a region name was not specified. Skipping.");
+        return Task.CompletedTask;
+      }
+
       _eye.AddOrUpdateFocusRegion(region.Name, region.BitmapSettings);
 
-      _logger.LogInformation($"Eye Updated Region: {region.Name} - X: {region.BitmapSettings?.X} Y: {region.BitmapSettings?.Y} Width: {region.BitmapSettings?.Width} Height: {region.BitmapSettings?.Height}");
+      _logger.LogInformation($"Eye Updated Region '{region.Name}' - X: {region.BitmapSettings?.X} Y: {region.BitmapSettings?.Y} Width: {region.BitmapSettings?.Width} Height: {region.BitmapSettings?.Height}");
       return Task.CompletedTask;
     }
 
@@ -121,10 +128,7 @@
         return;
       }
 
-      _context.ObserverCts.Cancel();
-      _context.ObserverCts.Dispose();
-      _context.ObserverCts = null;
-      _context.Observer = null;
+      _context.StopObserver();
 
       await ReportStatus(message);
     }

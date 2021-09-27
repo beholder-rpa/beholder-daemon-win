@@ -35,7 +35,6 @@ namespace beholder_nest.Routing
     public async Task InterceptApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs e)
     {
       _logger.LogTrace($"Processing message with topic '{e.ApplicationMessage.Topic}'.");
-
       var subscriptionMethods = RouteTable.GetTopicSubscriptions(e.ApplicationMessage);
       if (subscriptionMethods == null || subscriptionMethods.Length == 0)
       {
@@ -114,7 +113,7 @@ namespace beholder_nest.Routing
           }
           catch (ArgumentException ex)
           {
-            _logger.LogError(ex, $"Unable to match route parameters to all arguClass.csments. See inner exception for details.");
+            _logger.LogError(ex, $"Unable to match route parameters to all arguments. See inner exception for details.");
             throw;
           }
           catch (TargetInvocationException ex)

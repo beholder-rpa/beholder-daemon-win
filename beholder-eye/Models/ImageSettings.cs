@@ -46,8 +46,11 @@
       init;
     }
 
-    [JsonPropertyName("maxFps")]
-    public double? MaxFps
+    /// <summary>
+    /// Indicates how often the region is captured. Ex: An update rate of 250 will only capture the region 4 times a second.
+    /// </summary>
+    [JsonPropertyName("updateRateMs")]
+    public int? UpdateRateMs
     {
       get;
       init;

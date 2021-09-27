@@ -37,6 +37,9 @@
     <None Update="Images\greenSquare.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Images\jp.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Images\redCookie.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

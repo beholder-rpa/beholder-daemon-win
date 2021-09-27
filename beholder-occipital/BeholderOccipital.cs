@@ -9,6 +9,7 @@
   using System.Collections.Concurrent;
   using System.Collections.Generic;
   using System.Diagnostics;
+  using System.IO;
   using System.Linq;
   using System.Threading;
   using System.Threading.Tasks;
@@ -22,7 +23,7 @@
     private readonly ILogger<BeholderOccipital> _logger;
     private readonly ICacheClient _cacheClient;
 
-    private readonly ConcurrentDictionary<IObserver<BeholderOccipitalEvent>, BeholderOccipitalEventUnsubscriber> _observers = new ConcurrentDictionary<IObserver<BeholderOccipitalEvent>, BeholderOccipitalEventUnsubscriber>();
+    private readonly ConcurrentDictionary<IObserver<BeholderOccipitalEvent>, BeholderOccipitalEventUnsubscriber> _observers = new();
 
     public BeholderOccipital(IMatchMaskFactory matchMaskFactory, IMatchProcessor matchProcessor, ICacheClient cacheClient, ILogger<BeholderOccipital> logger)
     {
@@ -45,7 +46,7 @@
     /// <param name="request"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task DetectObject(ObjectDetectionRequest request, CancellationToken cancellationToken = default)
+    public Task DetectObject(SiftFlannObjectDetectionRequest request, CancellationToken cancellationToken = default)
     {
       if (string.IsNullOrWhiteSpace(request.QueryImagePrefrontalKey))
       {
@@ -96,19 +97,19 @@
 
         currentTime.Restart();
         // If image pre-processors are specified, run them
-        foreach (var imagePreProcessor in request.ImagePreProcessors)
+        foreach (var imagePreProcessor in request.PreProcessors)
         {
-          switch (imagePreProcessor.Kind)
+          switch(imagePreProcessor)
           {
-            case ProcessorKind.Scale:
+            case ScaleImageProcessor scaleImageProcessor:
               {
-                var newQueryImageWidth = queryImage.Width * imagePreProcessor.ScaleFactor.Value;
-                var newQueryImageHeight = queryImage.Height * imagePreProcessor.ScaleFactor.Value;
+                var newQueryImageWidth = queryImage.Width * scaleImageProcessor.ScaleFactor.Value;
+                var newQueryImageHeight = queryImage.Height * scaleImageProcessor.ScaleFactor.Value;
 
                 queryImage = queryImage.Resize(new Size(newQueryImageWidth, newQueryImageHeight));
 
-                var newTrainImageWidth = trainImage.Width * imagePreProcessor.ScaleFactor.Value;
-                var newTrainImageHeight = trainImage.Height * imagePreProcessor.ScaleFactor.Value;
+                var newTrainImageWidth = trainImage.Width * scaleImageProcessor.ScaleFactor.Value;
+                var newTrainImageHeight = trainImage.Height * scaleImageProcessor.ScaleFactor.Value;
 
                 trainImage = trainImage.Resize(new Size(newTrainImageWidth, newTrainImageHeight));
                 break;
@@ -231,8 +232,8 @@
     /// </summary>
     /// <param name="request"></param>
     /// <param name="cancellationToken"></param>
-    private async Task PostProcessResults(
-      ObjectDetectionRequest request,
+    private Task PostProcessResults(
+      SiftFlannObjectDetectionRequest request,
       IList<IEnumerable<Point>> locationsResult,
       Mat queryImage,
       Mat trainImage,
@@ -243,17 +244,23 @@
       ObjectDetectionTiming timing,
       CancellationToken cancellationToken = default)
     {
-      // If an output image prefrontal key is specified, generate an output image and store it in the cache.
-      if (!string.IsNullOrWhiteSpace(request.OutputImagePrefrontalKey) && !cancellationToken.IsCancellationRequested)
+      // Perform any outputs
+      if (locationsResult.Count > 0 && request.OutputSettings != null)
       {
-        byte[] maskBytes = new byte[mask.Rows * mask.Cols];
-        Cv2.Polylines(trainImage, locationsResult, true, new Scalar(255, 0, 0), 3, LineTypes.AntiAlias);
-        using var outImg = new Mat();
-        Cv2.DrawMatches(queryImage, queryKeyPoints, trainImage, trainKeyPoints, allGoodMatches, outImg, new Scalar(0, 255, 0), flags: DrawMatchesFlags.NotDrawSinglePoints);
-        var outImageBytes = outImg.ImEncode();
-        await _cacheClient.Base64ByteArraySet(request.OutputImagePrefrontalKey, outImageBytes);
-      }
+        // Ensure the output folder exists
+        Directory.CreateDirectory("./output/");
+        var outputSettings = request.OutputSettings;
 
+        // If DrawMatchesFilePrefix is specified, generate an output image and save it to the file system.
+        if (!string.IsNullOrWhiteSpace(outputSettings.DrawMatchesFilePrefix) && !cancellationToken.IsCancellationRequested)
+        {
+          byte[] maskBytes = new byte[mask.Rows * mask.Cols];
+          Cv2.Polylines(trainImage, locationsResult, true, new Scalar(255, 0, 0), 3, LineTypes.AntiAlias);
+          using var outImg = new Mat();
+          Cv2.DrawMatches(queryImage, queryKeyPoints, trainImage, trainKeyPoints, allGoodMatches, outImg, new Scalar(0, 255, 0), flags: DrawMatchesFlags.NotDrawSinglePoints);
+          outImg.SaveImage($"./output/{outputSettings.DrawMatchesFilePrefix}");
+        }
+      }
 
       // Finally, create and notify subscribers of the result
       if (!cancellationToken.IsCancellationRequested)
@@ -289,6 +296,8 @@
 
         OnBeholderOccipitalEvent(objectDetectionEvent);
       }
+
+      return Task.CompletedTask;
     }
 
     /// <summary>

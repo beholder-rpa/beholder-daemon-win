@@ -25,6 +25,17 @@
       set;
     }
 
+    public void StopObserver()
+    {
+      if (ObserverCts != null)
+      {
+        ObserverCts.Cancel();
+        ObserverCts.Dispose();
+        ObserverCts = null;
+        Observer = null;
+      }
+    }
+
     private void Dispose(bool disposing)
     {
       if (!_isDisposed)

@@ -2,6 +2,7 @@
 {
   using beholder_eye;
   using beholder_nest;
+  using beholder_nest.Json;
   using beholder_nest.Models;
   using beholder_occipital;
   using beholder_psionix;
@@ -37,9 +38,14 @@
         c.BaseAddress = new Uri($"https://{beholderOptions.BaseUrl}", UriKind.Absolute);
       });
 
-      services.AddSingleton(sp => new JsonSerializerOptions
+      services.AddSingleton(sp =>
       {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        var options = new JsonSerializerOptions
+        {
+          PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        };
+        options.Converters.Add(new AbstractClassConverterFactory(options));
+        return options;
       });
 
       services.AddSingleton<BeholderServiceInfo>();

@@ -2,8 +2,8 @@
 {
   using beholder_occipital.Models;
   using OpenCvSharp;
+  using System;
   using System.Collections.Generic;
-  using System.Linq;
 
   public static class OpenCvUtil
   {
@@ -43,32 +43,44 @@
     /// <param name="k">Number of colors required.</param>
     public static IList<Color> GetDominantColors(Mat input, int k)
     {
-      using Mat pixels = new Mat();
-      using Mat labels = new Mat();
-      using Mat centers = new Mat();
+      using Mat pixels = new();
+      using Mat labels = new();
+      using Mat centers = new();
 
-      var scale = 0.5;
-      var width = input.Cols * scale;
-      var height = input.Rows * scale;
+      var width = input.Cols;
+      var height = input.Rows;
 
-      input.ConvertTo(pixels, MatType.CV_32FC3);
-      //pixels.Reshape(1, (int)input.Total());
-      Cv2.Resize(pixels, pixels, new Size(width, height));
-      //Cv2.CvtColor(pixels, pixels, ColorConversionCodes.BGR2RGB);
+      pixels.Create(width * height, 1, MatType.CV_32FC3);
+      centers.Create(k, 1, pixels.Type());
 
-      pixels.SaveImage("foo.png");
-      //int width = input.Cols;
-      //int height = input.Rows;
+      // Input Image Data
+      int ix = 0;
+      for (int y = 0; y < height; y++)
+      {
+        for (int x = 0; x < width; x++, ix++)
+        {
+          var val = input.At<Vec3b>(y, x);
+          var vec3f = new Vec3f
+          {
+            Item0 = val.Item0,
+            Item1 = val.Item1,
+            Item2 = val.Item2
+          };
+
+          pixels.Set(ix, vec3f);
+        }
+      }
 
       // Criteria:
       // – Stop the algorithm iteration if specified accuracy, epsilon, is reached.
       // – Stop the algorithm after the specified number of iterations, MaxIter.
-      var criteria = new TermCriteria(CriteriaTypes.MaxIter, maxCount: 10, epsilon: 1.0);
+      var criteria = new TermCriteria(CriteriaTypes.Eps | CriteriaTypes.MaxIter, maxCount: 10000, epsilon: 0.01);
 
       // Finds centers of clusters and groups input samples around the clusters.
       Cv2.Kmeans(data: pixels, k: k, bestLabels: labels, criteria: criteria, attempts: 3, flags: KMeansFlags.PpCenters, centers);
 
       var colors = new List<Color>();
+
       for (int i = 0; i < centers.Rows; i++)
       {
         var color = centers.At<Vec3f>(i, 0);
@@ -79,40 +91,10 @@
           Green = (int)color.Item1,
           Blue = (int)color.Item0,
         });
-        
+
       }
 
       return colors;
-
-      //centers.SaveImage("foo.png");
-      //int i = 0;
-      //var colors = new Dictionary<Color, int>();
-      //for (int y = 0; y < height; y++)
-      //{
-      //  for (int x = 0; x < width; x++, i++)
-      //  {
-      //    var f = input.At<Vec3b>(y, x);
-      //    var color = new Color()
-      //    {
-      //      Red = f.Item2,
-      //      Green = f.Item1,
-      //      Blue = f.Item0,
-      //    };
-      //    if (!colors.ContainsKey(color))
-      //    {
-      //      colors.Add(color, 1);
-      //    }
-      //    else
-      //    {
-      //      colors[color]++;
-      //    }
-      //  }
-      //}
-      //return colors
-      //  .OrderBy(k => k.Value)
-      //  .Select(k => k.Key)
-      //  .Take(k)
-      //  .ToList();
     }
   }
 }

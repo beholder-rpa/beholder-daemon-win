@@ -1,6 +1,5 @@
 ﻿namespace beholder_nest.Mqtt
 {
-  using beholder_nest.Extensions;
   using Microsoft.Extensions.Logging;
   using MQTTnet;
   using MQTTnet.Client.Receiving;

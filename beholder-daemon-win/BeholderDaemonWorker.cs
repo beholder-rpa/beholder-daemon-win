@@ -25,6 +25,7 @@ namespace beholder_daemon_win
 
     private readonly BeholderEye _eye;
     private readonly BeholderEyeObserver _eyeObserver;
+    private readonly BeholderEyeContext _eyeContext;
 
     private Task _psionixObserveTask;
 
@@ -36,6 +37,7 @@ namespace beholder_daemon_win
       BeholderPsionixObserver psionixObserver,
       BeholderEye eye,
       BeholderEyeObserver eyeObserver,
+      BeholderEyeContext eyeContext,
       BeholderServiceInfo beholderServiceInfo,
       ILogger<BeholderDaemonWorker> logger
     )
@@ -50,6 +52,7 @@ namespace beholder_daemon_win
 
       _eye = eye ?? throw new ArgumentNullException(nameof(eye));
       _eyeObserver = eyeObserver ?? throw new ArgumentNullException(nameof(eyeObserver));
+      _eyeContext = eyeContext ?? throw new ArgumentNullException(nameof(eyeContext));
 
       _serviceInfo = beholderServiceInfo ?? throw new ArgumentNullException(nameof(beholderServiceInfo));
       _logger = logger ?? throw new ArgumentNullException(nameof(logger)); ;
@@ -76,6 +79,12 @@ namespace beholder_daemon_win
         //_logger.LogInformation("Daemon Pulsed");
         await Task.Delay(5000, stoppingToken);
       }
+    }
+
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+      _eyeContext.StopObserver();
+      return Task.CompletedTask;
     }
   }
 }

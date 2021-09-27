@@ -1,15 +1,22 @@
 ﻿namespace beholder_occipital.Models
 {
+  using beholder_nest.Attributes;
   using System.Text.Json.Serialization;
 
-  public record ImageProcessor
+  [Discriminator(nameof(Type))]
+  public abstract record ImageProcessor
   {
-    [JsonPropertyName("kind")]
-    public ProcessorKind Kind
+    [JsonPropertyName("type")]
+    public virtual ImageProcessorType Type
     {
       get;
-      set;
     }
+  }
+
+  [DiscriminatorValue(ImageProcessorType.Scale)]
+  public record ScaleImageProcessor : ImageProcessor
+  {
+    public override ImageProcessorType Type { get => ImageProcessorType.Scale; }
 
     [JsonPropertyName("scaleFactor")]
     public float? ScaleFactor

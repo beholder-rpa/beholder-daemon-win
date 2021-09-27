@@ -3,7 +3,7 @@
   using System.Text.Json.Serialization;
 
   [JsonConverter(typeof(JsonStringEnumConverter))]
-  public enum ProcessorKind
+  public enum ImageProcessorType
   {
     Scale,
   }
